@@ -52,7 +52,6 @@
     { "nombre": "CNBC", "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html", "peso": 1 },
     { "nombre": "CNBC Tech", "url": "https://www.cnbc.com/id/19854910/device/rss/rss.html" },
     { "nombre": "MarketWatch", "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories", "tema": "mercados" },
-    { "nombre": "Yahoo Finance", "url": "https://finance.yahoo.com/news/rssindex", "tema": "mercados" },
     { "nombre": "BBC Business", "url": "https://feeds.bbci.co.uk/news/business/rss.xml", "tema": "economia" },
     { "nombre": "CoinDesk", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/", "tema": "cripto" },
     { "nombre": "Cointelegraph", "url": "https://cointelegraph.com/rss", "tema": "cripto" },

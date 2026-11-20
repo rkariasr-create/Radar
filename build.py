@@ -268,27 +268,64 @@ def trends(items: list, n: int = 12) -> list:
 
 
 # ---------------------------------------------------------------- mercados
-def markets(cfg: dict) -> list:
-    def one(t):
-        sym = t["symbol"]
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym)}?range=1mo&interval=1d"
+STOOQ = {"^GSPC": "^spx", "^IXIC": "^ndq", "^DJI": "^dji", "BTC-USD": "btcusd", "ETH-USD": "ethusd",
+         "GC=F": "xauusd", "CL=F": "cl.f", "EURUSD=X": "eurusd"}
+
+
+def _yahoo(sym):
+    for host in ("query1", "query2"):
+        url = f"https://{host}.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym)}?range=1mo&interval=1d"
         try:
             r = json.loads(fetch(url, timeout=12))["chart"]["result"][0]
             closes = [c for c in r["indicators"]["quote"][0]["close"] if c is not None]
             price = r["meta"].get("regularMarketPrice") or closes[-1]
-            prev = closes[-2] if len(closes) >= 2 else None
             if closes and abs(closes[-1] - price) / price > 0.0005:
-                prev = closes[-1]  # el día de hoy aún no tiene vela diaria
-            return {"symbol": sym, "name": t.get("nombre", sym), "price": round(price, 4),
-                    "change": round((price / prev - 1) * 100, 2) if prev else None,
-                    "spark": [round(c, 4) for c in closes[-22:]]}
+                closes.append(price)  # el día de hoy aún no tiene vela diaria
+            return closes, price
         except Exception as ex:
-            print(f"  ✗ mercado {sym}: {ex}")
-            return None
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        res = [m for m in pool.map(one, cfg.get("mercados", [])) if m]
+            last = ex
+            time.sleep(1.5)
+    raise last
+
+
+def _stooq(sym, t):
+    code = t.get("stooq") or STOOQ.get(sym) or (sym.lower() + ".us")
+    d1 = datetime.fromtimestamp(NOW.timestamp() - 40 * 86400, tz=timezone.utc).strftime("%Y%m%d")
+    url = f"https://stooq.com/q/d/l/?s={urllib.parse.quote(code)}&i=d&d1={d1}&d2={NOW.strftime('%Y%m%d')}"
+    rows = fetch(url, timeout=12).decode().strip().splitlines()[1:]
+    closes = [float(r.split(",")[4]) for r in rows if r.count(",") >= 4 and r.split(",")[4] not in ("", "null")]
+    if len(closes) < 2:
+        raise ValueError("sin datos")
+    return closes, closes[-1]
+
+
+def markets(cfg: dict) -> list:
+    res = []
+    for t in cfg.get("mercados", []):  # de uno en uno: los proveedores gratis bloquean ráfagas
+        sym = t["symbol"]
+        closes = price = None
+        for name, fn in (("Yahoo", lambda: _yahoo(sym)), ("Stooq", lambda: _stooq(sym, t))):
+            try:
+                closes, price = fn()
+                break
+            except Exception as ex:
+                print(f"  ✗ mercado {sym} ({name}): {ex}")
+        if closes:
+            prev = closes[-2] if len(closes) >= 2 else None
+            res.append({"symbol": sym, "name": t.get("nombre", sym), "price": round(price, 4),
+                        "change": round((price / prev - 1) * 100, 2) if prev else None,
+                        "spark": [round(c, 4) for c in closes[-22:]]})
+        time.sleep(0.4)
     print(f"Mercados: {len(res)} de {len(cfg.get('mercados', []))}")
     return res
+
+
+def merge_markets(cfg, fresh, old):
+    """Si un precio no se pudo actualizar, se conserva el último conocido."""
+    got = {m["symbol"]: m for m in fresh}
+    prev = {m["symbol"]: m for m in old}
+    return [got.get(t["symbol"]) or prev.get(t["symbol"]) for t in cfg.get("mercados", [])
+            if got.get(t["symbol"]) or prev.get(t["symbol"])]
 
 
 # ---------------------------------------------------------------- IA (opcional)
@@ -427,7 +464,7 @@ def main():
         "brief": ai.get("brief") or None,
         "stories": stories,
         "trends": tr,
-        "markets": mk or prev.get("markets") or [],
+        "markets": merge_markets(cfg, mk, prev.get("markets") or []),
         "ai": ai or None,
         "items": items,
     }
