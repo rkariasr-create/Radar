@@ -450,7 +450,7 @@ def auto_stories(items: list, trend_list: list, k: int = 5) -> list:
         group = [it for it in items[:80] if it["id"] not in used and rx.search(norm(it["title"]))]
         if len(group) < 3:
             continue
-        lead = max(group[:6], key=lambda it: (bool(it.get("ai_summary") or it["summary"]), it["n_sources"]))
+        lead = max(group[:8], key=lambda it: (bool(rx.search(norm(it["title"])[:len(it["title"]) // 2])), bool(it.get("ai_summary") or it["summary"]), it["n_sources"]))
         group.remove(lead)
         group.insert(0, lead)
         used.update(it["id"] for it in group)
