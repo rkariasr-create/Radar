@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radar 360</title>
+<meta name="theme-color" content="#0b0f17">
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#121826; --panel2:#182033; --line:#232c40;
+    --text:#e8ecf4; --muted:#8b95a9; --accent:#5b8cff; --hot:#ff6b4a; --up:#2fbf71; --down:#ff5c5c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 16px 60px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:20px 0 10px}
+  h1{margin:0;font-size:22px;letter-spacing:-.02em}
+  h1 span{color:var(--accent)}
+  .updated{color:var(--muted);font-size:13px}
+  .ticker{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:0 -16px 18px;min-height:46px}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .stat .k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+  .stat .v{font-size:20px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
+  .stat .d{font-size:13px;font-variant-numeric:tabular-nums}
+  .up{color:var(--up)} .down{color:var(--down)}
+  .brief{background:linear-gradient(180deg,#16203a,#121826);border:1px solid #2a3960;border-radius:14px;padding:16px 18px;margin-bottom:18px}
+  .brief h2{margin:0 0 8px;font-size:15px;color:#a9c0ff}
+  .brief ul{margin:0;padding-left:18px} .brief li{margin:6px 0}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5}
+  .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1}
+  .chip{white-space:nowrap;border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:6px 12px;border-radius:999px;font-size:13px;cursor:pointer}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  input[type=search]{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 12px;font-size:14px;min-width:200px}
+  .item{display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;transition:border-color .15s}
+  .item:hover{border-color:#3a4a6e} a.title:hover{color:#a9c0ff}
+  .item.top{border-left:3px solid var(--hot)}
+  .meta{display:flex;flex-wrap:wrap;gap:6px 10px;color:var(--muted);font-size:12.5px;margin-bottom:4px}
+  .badge{background:var(--panel2);border-radius:6px;padding:1px 7px;font-size:11.5px;color:#b8c2d6}
+  .badge.hot{background:#3a1d17;color:#ffb39f}
+  .title{display:block;font-weight:620;font-size:16px;line-height:1.35}
+  .sum{color:#c3cad8;font-size:14px;margin-top:5px}
+  .also{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .also a{text-decoration:underline;text-decoration-color:#3a4a6e}
+  .empty{color:var(--muted);text-align:center;padding:40px 0}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:30px}
+  @media (max-width:720px){ .grid{grid-template-columns:repeat(2,1fr)} input[type=search]{width:100%} }
+
+  /* ---------- Asistente de consulta ---------- */
+  .ask-item{margin-top:8px;background:none;border:1px solid var(--line);color:#a9c0ff;border-radius:8px;padding:4px 10px;font-size:12.5px;cursor:pointer}
+  .ask-item:hover{border-color:var(--accent)}
+  .fab{position:fixed;right:18px;bottom:18px;z-index:20;background:var(--accent);color:#fff;border:0;border-radius:999px;padding:13px 18px;font-size:15px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.45);cursor:pointer}
+  .sel-pill{position:absolute;z-index:25;background:#fff;color:#111;border:0;border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,.4);cursor:pointer;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .panel{position:fixed;right:18px;bottom:18px;z-index:30;width:400px;max-width:calc(100vw - 24px);height:min(640px,calc(100vh - 36px));background:var(--panel);border:1px solid #2a3960;border-radius:16px;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+  .panel[hidden]{display:none}
+  .p-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .p-head strong{flex:1}
+  .icon{background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 6px}
+  .ctx{margin:10px 14px 0;background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:12.5px;color:#b8c2d6;display:flex;gap:8px;align-items:flex-start}
+  .ctx[hidden]{display:none}
+  .ctx span{flex:1}
+  .msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+  .msg{padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.5;max-width:92%;word-wrap:break-word}
+  .msg.user{align-self:flex-end;background:var(--accent);color:#fff}
+  .msg.bot{align-self:flex-start;background:var(--panel2)}
+  .msg.bot ul{margin:4px 0;padding-left:18px}
+  .msg.note{align-self:center;color:var(--muted);font-size:12.5px;text-align:center;background:none}
+  .quick{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px}
+  .quick button{background:var(--panel2);border:1px solid var(--line);color:#c3cad8;border-radius:999px;padding:5px 10px;font-size:12px;cursor:pointer}
+  .p-form{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
+  .p-form textarea{flex:1;resize:none;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;height:42px}
+  .btn{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:0 14px;font-weight:600;cursor:pointer}
+  .btn.ghost{background:none;border:1px solid var(--line);color:#c3cad8}
+  .p-foot{display:flex;gap:8px;padding:0 14px 12px}
+  .p-foot .btn{flex:1;padding:9px 0;font-size:13px}
+  .settings{padding:12px 14px;font-size:13px;color:#c3cad8;overflow-y:auto}
+  .settings label{display:block;margin:10px 0 4px;color:var(--muted)}
+  .settings input,.settings select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px}
+  .settings p{margin:6px 0;color:var(--muted);font-size:12.5px}
+  @media (max-width:720px){ .panel{right:0;bottom:0;width:100vw;max-width:100vw;height:88vh;border-radius:16px 16px 0 0} .fab{right:14px;bottom:14px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Radar <span>360</span></h1>
+    <div class="updated" id="updated">Cargando…</div>
+  </header>
+
+  <div class="ticker" id="ticker"></div>
+
+  <div class="grid">
+    <div class="stat"><div class="k">Bitcoin</div><div class="v" id="btc">—</div><div class="d" id="btcd"></div></div>
+    <div class="stat"><div class="k">Ethereum</div><div class="v" id="eth">—</div><div class="d" id="ethd"></div></div>
+    <div class="stat"><div class="k">Miedo / Codicia cripto</div><div class="v" id="fng">—</div><div class="d" id="fngd"></div></div>
+    <div class="stat"><div class="k">Noticias en el radar</div><div class="v" id="count">—</div><div class="d" id="countd"></div></div>
+  </div>
+
+  <section class="brief" id="brief" hidden>
+    <h2>Brief del día · lo que tienes que saber</h2>
+    <ul id="briefList"></ul>
+  </section>
+
+  <div class="controls">
+    <div class="chips" id="chips"></div>
+    <input type="search" id="q" placeholder="Buscar (ej. OpenAI, Fed, Nvidia)…">
+  </div>
+
+  <main id="list"></main>
+  <footer>Se actualiza solo cada 3 horas · Datos de mercado: TradingView y CoinGecko · Noticias de sus medios originales</footer>
+</div>
+
+<!-- ---------- Asistente de consulta ---------- -->
+<button class="fab" id="fab">💬 Consultar</button>
+<button class="sel-pill" id="selPill" hidden></button>
+
+<section class="panel" id="panel" hidden aria-label="Asistente de consulta">
+  <div class="p-head">
+    <strong>💬 Consultar</strong>
+    <button class="icon" id="newChat" title="Nueva conversación">↺</button>
+    <button class="icon" id="gear" title="Configuración">⚙️</button>
+    <button class="icon" id="closeP" title="Cerrar">✕</button>
+  </div>
+
+  <div id="chatView" style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <div class="ctx" id="ctx" hidden><span id="ctxText"></span><button class="icon" id="ctxX" title="Quitar contexto">✕</button></div>
+    <div class="msgs" id="msgs"></div>
+    <div class="quick" id="quick">
+      <button data-q="Explícame los términos técnicos de esta noticia en palabras simples.">Explícame los términos</button>
+      <button data-q="¿Cómo impacta esto a las empresas y a los negocios? Dame ejemplos concretos.">¿Impacto en empresas?</button>
+      <button data-q="Explícamelo como si fuera mi primer día en el tema, con una analogía.">Explícalo simple</button>
+      <button data-q="¿Qué debería vigilar a partir de ahora sobre este tema?">¿Qué vigilar?</button>
+    </div>
+    <form class="p-form" id="form">
+      <textarea id="input" placeholder="Pregunta un término o concepto…" rows="1"></textarea>
+      <button class="btn" type="submit">Enviar</button>
+    </form>
+    <div class="p-foot">
+      <button class="btn ghost" id="openClaude" type="button">Abrir en Claude ↗</button>
+    </div>
+  </div>
+
+  <div class="settings" id="settingsView" hidden>
+    <p>Elige quién responde <b>dentro</b> de la página. Tu clave se guarda solo en este dispositivo (nunca en GitHub).</p>
+    <label for="prov">Motor</label>
+    <select id="prov">
+      <option value="claude-link">Claude (abre la app o web de Claude, $0 con tu cuenta)</option>
+      <option value="gemini">Gemini, respuestas aquí mismo (clave gratis)</option>
+      <option value="claude-api">Claude API, respuestas aquí mismo (de pago)</option>
+    </select>
+    <div id="gemBox">
+      <label for="gemKey">Clave de Gemini (aistudio.google.com → Get API key)</label>
+      <input id="gemKey" type="password" placeholder="AIza…" autocomplete="off">
+    </div>
+    <div id="claBox">
+      <label for="claKey">Clave de la API de Claude (console.anthropic.com)</label>
+      <input id="claKey" type="password" placeholder="sk-ant-…" autocomplete="off">
+      <label for="claModel">Modelo</label>
+      <input id="claModel" placeholder="claude-haiku-5-5">
+    </div>
+    <p style="margin-top:14px"><button class="btn" id="saveSet" type="button" style="padding:9px 16px">Guardar</button></p>
+  </div>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+let DATA = {items: []}, CFG = {temas: {}}, topic = "top", query = "";
+
+const fmtUsd = n => "$" + Math.round(n).toLocaleString("es");
+const ago = iso => {
+  if (!iso) return "";
+  const m = Math.max(1, Math.round((Date.now() - new Date(iso)) / 60000));
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `hace ${h} h` : `hace ${Math.round(h / 24)} d`;
+};
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function ticker(symbols) {
+  const box = document.createElement("div");
+  box.className = "tradingview-widget-container";
+  box.innerHTML = '<div class="tradingview-widget-container__widget"></div>';
+  const s = document.createElement("script");
+  s.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+  s.async = true;
+  s.innerHTML = JSON.stringify({symbols, showSymbolLogo: true, colorTheme: "dark", isTransparent: true, displayMode: "adaptive", locale: "es"});
+  box.appendChild(s);
+  $("ticker").appendChild(box);
+}
+
+async function markets() {
+  try {
+    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true");
+    const d = await r.json();
+    for (const [id, el] of [["bitcoin", "btc"], ["ethereum", "eth"]]) {
+      const ch = d[id].usd_24h_change;
+      $(el).textContent = fmtUsd(d[id].usd);
+      $(el + "d").innerHTML = `<span class="${ch >= 0 ? "up" : "down"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}% 24 h</span>`;
+    }
+  } catch (e) { $("btcd").textContent = "sin datos"; }
+  try {
+    const r = await fetch("https://api.alternative.me/fng/?limit=1");
+    const d = (await r.json()).data[0];
+    const tr = {"Extreme Fear":"Miedo extremo","Fear":"Miedo","Neutral":"Neutral","Greed":"Codicia","Extreme Greed":"Codicia extrema"};
+    $("fng").textContent = d.value + " / 100";
+    $("fngd").textContent = tr[d.value_classification] || d.value_classification;
+  } catch (e) { $("fngd").textContent = "sin datos"; }
+}
+
+function chips() {
+  const opts = [["top", "🔥 Lo más importante"], ["all", "Todo"], ...Object.entries(CFG.temas).map(([k, v]) => [k, v.nombre])];
+  $("chips").innerHTML = opts.map(([k, n]) => `<button class="chip${k === topic ? " on" : ""}" data-k="${k}">${esc(n)}</button>`).join("");
+  $("chips").querySelectorAll(".chip").forEach(b => b.onclick = () => { topic = b.dataset.k; chips(); render(); });
+}
+
+function render() {
+  let items = DATA.items;
+  if (topic === "top") items = items.slice(0, 25);
+  else if (topic !== "all") items = items.filter(i => i.topics.includes(topic));
+  if (query) {
+    const q = query.toLowerCase();
+    items = DATA.items.filter(i => (i.title + " " + (i.ai_summary || "") + " " + i.summary + " " + i.source).toLowerCase().includes(q));
+  }
+  if (!items.length) { $("list").innerHTML = '<div class="empty">No hay noticias para este filtro.</div>'; return; }
+  $("list").innerHTML = items.map((i, idx) => {
+    const tags = i.topics.map(t => `<span class="badge">${esc(CFG.temas[t]?.nombre || t)}</span>`).join("");
+    const hot = i.n_sources >= 3 ? `<span class="badge hot">en ${i.n_sources} medios</span>` : "";
+    const also = i.also?.length ? `<div class="also">También en: ${i.also.map(a => `<a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.source)}</a>`).join(", ")}</div>` : "";
+    const sum = i.ai_summary || i.summary;
+    return `<article class="item${(topic === "top" && idx < 5) || i.n_sources >= 4 ? " top" : ""}" data-id="${esc(i.id)}">
+      <div class="meta"><strong>${esc(i.source)}</strong><span>${ago(i.published)}</span>${hot}${tags}</div>
+      <a class="title" href="${esc(i.link)}" target="_blank" rel="noopener">${esc(i.title)}</a>
+      ${sum ? `<div class="sum">${esc(sum)}</div>` : ""}
+      ${also}
+      <button class="ask-item" data-id="${esc(i.id)}">💬 Preguntar sobre esto</button>
+    </article>`;
+  }).join("");
+}
+
+async function init() {
+  try { CFG = await (await fetch("config.json", {cache: "no-store"})).json(); } catch (e) {}
+  document.title = CFG.titulo || "Radar 360";
+  ticker(CFG.tickers || []);
+  markets();
+  chips();
+  try {
+    DATA = await (await fetch("news.json", {cache: "no-store"})).json();
+    $("updated").textContent = "Actualizado " + ago(DATA.generated_at);
+    $("count").textContent = DATA.items.length;
+    $("countd").textContent = DATA.items.filter(i => i.n_sources >= 3).length + " con cobertura amplia";
+    if (DATA.brief?.length) {
+      $("brief").hidden = false;
+      $("briefList").innerHTML = DATA.brief.map(b => `<li>${esc(b)}</li>`).join("");
+    }
+  } catch (e) {
+    $("updated").textContent = "Aún no hay noticias";
+    $("list").innerHTML = '<div class="empty">Todavía no se generó news.json. Ve a la pestaña Actions de GitHub y ejecuta “Actualizar Radar”.</div>';
+    return;
+  }
+  render();
+}
+$("q").addEventListener("input", e => { query = e.target.value.trim(); render(); });
+init();
+setInterval(markets, 60000);
+
+/* =================== Asistente de consulta =================== */
+const store = {
+  get(k, d = "") { try { return localStorage.getItem("radar_" + k) ?? d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("radar_" + k, v); } catch (e) {} }
+};
+const SYSTEM = `Eres el asistente de "Radar 360", la página de noticias personal de un emprendedor en América Latina interesado en IA, startups, economía, bolsa, bitcoin y marketing. Responde siempre en español, claro y breve (máximo unas 180 palabras salvo que te pidan más). Cuando expliques un término o concepto: 1) definición simple, 2) un ejemplo o analogía cotidiana, 3) por qué importa para las empresas o las inversiones. Si te falta información sobre la noticia, dilo; no inventes datos.`;
+let chat = [], ctxItem = null, selTimer = null;
+
+const ctxText = () => ctxItem ? `Noticia que estoy viendo:\nTítulo: ${ctxItem.title}\nMedio: ${ctxItem.source}\nResumen: ${ctxItem.ai_summary || ctxItem.summary || "(sin resumen)"}\nEnlace: ${ctxItem.link}` : "";
+
+function md(text) {
+  const lines = esc(text).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").split("\n");
+  let out = "", list = false;
+  for (const l of lines) {
+    const m = l.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)/);
+    if (m) { if (!list) { out += "<ul>"; list = true; } out += `<li>${m[1]}</li>`; }
+    else { if (list) { out += "</ul>"; list = false; } if (l.trim()) out += `<div>${l}</div>`; }
+  }
+  return out + (list ? "</ul>" : "");
+}
+function addMsg(role, text) {
+  const d = document.createElement("div");
+  d.className = "msg " + role;
+  if (role === "bot") d.innerHTML = md(text); else d.textContent = text;
+  $("msgs").appendChild(d);
+  $("msgs").scrollTop = $("msgs").scrollHeight;
+  return d;
+}
+function intro() {
+  const inPage = store.get("prov", "claude-link") !== "claude-link";
+  addMsg("note", inPage
+    ? "Pregúntame cualquier término o concepto. También puedes seleccionar texto en la página para preguntar por él."
+    : "Escribe tu pregunta y se abrirá Claude con el contexto de la noticia. Para respuestas aquí mismo, configura ⚙️.");
+}
+function setCtx(item) {
+  ctxItem = item;
+  $("ctx").hidden = !item;
+  $("ctxText").textContent = item ? "Sobre: " + item.title : "";
+  $("quick").style.display = item ? "flex" : "none";
+}
+function resetChat() { chat = []; $("msgs").innerHTML = ""; }
+function showView(settings) {
+  $("chatView").style.display = settings ? "none" : "flex";
+  $("settingsView").hidden = !settings;
+}
+function openPanel() {
+  $("panel").hidden = false; $("fab").hidden = true; showView(false);
+  if (!$("msgs").children.length) intro();
+  setTimeout(() => $("input").focus(), 60);
+}
+function closePanel() { $("panel").hidden = true; $("fab").hidden = false; }
+function askAbout(item, q) {
+  if (item !== ctxItem) resetChat();
+  setCtx(item);
+  openPanel();
+  if (q) send(q);
+}
+
+function claudeUrl(q) {
+  let prompt = (ctxItem ? ctxText() + "\n\n" : "") + q +
+    "\n\n(Responde en español, en palabras simples, con un ejemplo, y dime por qué importa para las empresas.)";
+  return "https://claude.ai/new?q=" + encodeURIComponent(prompt.slice(0, 3500));
+}
+function openClaude(q) { window.open(claudeUrl(q || "Explícame esta noticia y sus términos clave."), "_blank", "noopener"); }
+
+async function askGemini() {
+  const key = store.get("gemKey");
+  if (!key) throw new Error("falta la clave de Gemini en ⚙️");
+  const body = {
+    systemInstruction: {parts: [{text: SYSTEM}]},
+    contents: chat.map(m => ({role: m.role === "user" ? "user" : "model", parts: [{text: m.text}]})),
+    generationConfig: {temperature: 0.4}
+  };
+  let last;
+  for (const model of ["gemini-flash-latest", "gemini-2.5-flash"]) {
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": key}, body: JSON.stringify(body)});
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error?.message || "error " + r.status);
+      return d.candidates[0].content.parts.map(p => p.text || "").join("");
+    } catch (e) { last = e; }
+  }
+  throw last;
+}
+async function askClaudeApi() {
+  const key = store.get("claKey");
+  if (!key) throw new Error("falta la clave de la API de Claude en ⚙️");
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"},
+    body: JSON.stringify({model: store.get("claModel") || "claude-haiku-5-5", max_tokens: 900, system: SYSTEM,
+      messages: chat.map(m => ({role: m.role === "user" ? "user" : "assistant", content: m.text}))})
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || "error " + r.status);
+  return d.content.map(c => c.text || "").join("");
+}
+
+async function send(q) {
+  q = (q || "").trim();
+  if (!q) return;
+  const prov = store.get("prov", "claude-link");
+  addMsg("user", q);
+  $("input").value = "";
+  if (prov === "claude-link") { addMsg("note", "Abriendo Claude con tu pregunta…"); openClaude(q); return; }
+  chat.push({role: "user", text: (!chat.length && ctxItem ? ctxText() + "\n\nPregunta: " : "") + q});
+  const wait = addMsg("note", "Pensando…");
+  try {
+    const a = prov === "gemini" ? await askGemini() : await askClaudeApi();
+    wait.remove();
+    chat.push({role: "bot", text: a});
+    addMsg("bot", a);
+  } catch (e) {
+    wait.remove(); chat.pop();
+    addMsg("note", "No se pudo responder (" + e.message + "). Puedes tocar «Abrir en Claude».");
+  }
+}
+
+/* --- eventos --- */
+$("fab").onclick = openPanel;
+$("closeP").onclick = closePanel;
+$("newChat").onclick = () => { resetChat(); setCtx(null); showView(false); intro(); };
+$("ctxX").onclick = () => { resetChat(); setCtx(null); intro(); };
+$("form").onsubmit = e => { e.preventDefault(); send($("input").value); };
+$("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("input").value); } });
+$("quick").querySelectorAll("button").forEach(b => b.onclick = () => send(b.dataset.q));
+$("openClaude").onclick = () => {
+  const lastQ = [...chat].reverse().find(m => m.role === "user");
+  openClaude($("input").value.trim() || (lastQ && lastQ.text.split("Pregunta: ").pop()));
+};
+$("list").addEventListener("click", e => {
+  const b = e.target.closest(".ask-item");
+  if (b) askAbout(DATA.items.find(i => i.id === b.dataset.id) || null, null);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closePanel(); });
+
+/* --- configuración --- */
+function syncBoxes() {
+  const p = $("prov").value;
+  $("gemBox").style.display = p === "gemini" ? "block" : "none";
+  $("claBox").style.display = p === "claude-api" ? "block" : "none";
+}
+$("gear").onclick = () => {
+  const open = $("settingsView").hidden;
+  if (open) {
+    $("prov").value = store.get("prov", "claude-link");
+    $("gemKey").value = store.get("gemKey");
+    $("claKey").value = store.get("claKey");
+    $("claModel").value = store.get("claModel");
+    syncBoxes();
+  }
+  showView(open);
+};
+$("prov").onchange = syncBoxes;
+$("saveSet").onclick = () => {
+  store.set("prov", $("prov").value);
+  store.set("gemKey", $("gemKey").value.trim());
+  store.set("claKey", $("claKey").value.trim());
+  store.set("claModel", $("claModel").value.trim());
+  showView(false);
+  addMsg("note", "Configuración guardada en este dispositivo.");
+};
+
+/* --- seleccionar texto → preguntar --- */
+const pill = $("selPill");
+function selCheck() {
+  const s = window.getSelection();
+  const t = s && s.rangeCount ? s.toString().trim().replace(/\s+/g, " ") : "";
+  if (!t || t.length < 2 || t.length > 200 || $("panel").contains(s.anchorNode)) { pill.hidden = true; return; }
+  const r = s.getRangeAt(0).getBoundingClientRect();
+  const node = s.anchorNode.nodeType === 1 ? s.anchorNode : s.anchorNode.parentElement;
+  const art = node && node.closest(".item");
+  pill.dataset.t = t;
+  pill.dataset.id = art ? art.dataset.id : "";
+  pill.textContent = `💬 ¿Qué es «${t.length > 26 ? t.slice(0, 26) + "…" : t}»?`;
+  pill.style.top = (window.scrollY + r.bottom + 10) + "px";
+  pill.style.left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - 270)) + "px";
+  pill.hidden = false;
+}
+document.addEventListener("selectionchange", () => { clearTimeout(selTimer); selTimer = setTimeout(selCheck, 350); });
+pill.addEventListener("mousedown", e => e.preventDefault());
+pill.onclick = () => {
+  const item = DATA.items.find(i => i.id === pill.dataset.id) || null;
+  pill.hidden = true;
+  try { window.getSelection().removeAllRanges(); } catch (e) {}
+  askAbout(item, `¿Qué significa «${pill.dataset.t}» en este contexto?`);
+};
+</script>
+</body>
+</html>
