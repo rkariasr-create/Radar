@@ -268,54 +268,73 @@ def trends(items: list, n: int = 12) -> list:
 
 
 # ---------------------------------------------------------------- mercados
-STOOQ = {"^GSPC": "^spx", "^IXIC": "^ndq", "^DJI": "^dji", "BTC-USD": "btcusd", "ETH-USD": "ethusd",
-         "GC=F": "xauusd", "CL=F": "cl.f", "EURUSD=X": "eurusd"}
+# Símbolos equivalentes en CNBC (fuente principal: una sola consulta para todo)
+CNBC = {"^GSPC": ".SPX", "^IXIC": ".IXIC", "^DJI": ".DJI", "BTC-USD": "BTC.CM=", "ETH-USD": "ETH.CM=",
+        "GC=F": "@GC.1", "CL=F": "@CL.1", "EURUSD=X": "EUR="}
+
+
+def _num(v):
+    try:
+        return float(str(v).replace(",", "").replace("%", "").replace("+", "").strip())
+    except Exception:
+        return None
+
+
+def _cnbc(cfg):
+    codes = {t["symbol"]: t.get("cnbc") or CNBC.get(t["symbol"], t["symbol"]) for t in cfg.get("mercados", [])}
+    url = ("https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols="
+           + urllib.parse.quote("|".join(codes.values())) + "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json")
+    data = json.loads(fetch(url, timeout=15))
+    quotes = data.get("FormattedQuoteResult", {}).get("FormattedQuote", [])
+    by_code = {q.get("symbol"): q for q in quotes}
+    out = {}
+    for sym, code in codes.items():
+        q = by_code.get(code)
+        if not q:
+            continue
+        price = _num(q.get("last"))
+        chg = _num(q.get("change_pct"))
+        if chg is None and _num(q.get("previous_day_closing")):
+            chg = (price / _num(q["previous_day_closing"]) - 1) * 100
+        if price:
+            out[sym] = (price, chg)
+    return out
 
 
 def _yahoo(sym):
-    for host in ("query1", "query2"):
-        url = f"https://{host}.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym)}?range=1mo&interval=1d"
-        try:
-            r = json.loads(fetch(url, timeout=12))["chart"]["result"][0]
-            closes = [c for c in r["indicators"]["quote"][0]["close"] if c is not None]
-            price = r["meta"].get("regularMarketPrice") or closes[-1]
-            if closes and abs(closes[-1] - price) / price > 0.0005:
-                closes.append(price)  # el día de hoy aún no tiene vela diaria
-            return closes, price
-        except Exception as ex:
-            last = ex
-            time.sleep(1.5)
-    raise last
+    url = f"https://query2.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym)}?range=5d&interval=1d"
+    r = json.loads(fetch(url, timeout=12))["chart"]["result"][0]
+    closes = [c for c in r["indicators"]["quote"][0]["close"] if c is not None]
+    price = r["meta"].get("regularMarketPrice") or closes[-1]
+    prev = r["meta"].get("chartPreviousClose") if len(closes) < 2 else (closes[-2] if abs(closes[-1] - price) / price < 0.0005 else closes[-1])
+    return price, ((price / prev - 1) * 100 if prev else None)
 
 
-def _stooq(sym, t):
-    code = t.get("stooq") or STOOQ.get(sym) or (sym.lower() + ".us")
-    d1 = datetime.fromtimestamp(NOW.timestamp() - 40 * 86400, tz=timezone.utc).strftime("%Y%m%d")
-    url = f"https://stooq.com/q/d/l/?s={urllib.parse.quote(code)}&i=d&d1={d1}&d2={NOW.strftime('%Y%m%d')}"
-    rows = fetch(url, timeout=12).decode().strip().splitlines()[1:]
-    closes = [float(r.split(",")[4]) for r in rows if r.count(",") >= 4 and r.split(",")[4] not in ("", "null")]
-    if len(closes) < 2:
-        raise ValueError("sin datos")
-    return closes, closes[-1]
-
-
-def markets(cfg: dict) -> list:
-    res = []
-    for t in cfg.get("mercados", []):  # de uno en uno: los proveedores gratis bloquean ráfagas
-        sym = t["symbol"]
-        closes = price = None
-        for name, fn in (("Yahoo", lambda: _yahoo(sym)), ("Stooq", lambda: _stooq(sym, t))):
+def markets(cfg: dict, old: list) -> list:
+    try:
+        got = _cnbc(cfg)
+        print(f"  ✓ CNBC: {len(got)} precios")
+    except Exception as ex:
+        print(f"  ✗ CNBC: {ex}")
+        got = {}
+    for t in cfg.get("mercados", []):
+        if t["symbol"] not in got:
             try:
-                closes, price = fn()
-                break
+                got[t["symbol"]] = _yahoo(t["symbol"])
             except Exception as ex:
-                print(f"  ✗ mercado {sym} ({name}): {ex}")
-        if closes:
-            prev = closes[-2] if len(closes) >= 2 else None
-            res.append({"symbol": sym, "name": t.get("nombre", sym), "price": round(price, 4),
-                        "change": round((price / prev - 1) * 100, 2) if prev else None,
-                        "spark": [round(c, 4) for c in closes[-22:]]})
-        time.sleep(0.4)
+                print(f"  ✗ mercado {t['symbol']} (Yahoo): {ex}")
+            time.sleep(0.5)
+    prev = {m["symbol"]: m for m in old}
+    res = []
+    for t in cfg.get("mercados", []):
+        sym = t["symbol"]
+        if sym not in got:
+            continue
+        price, chg = got[sym]
+        # minigráfico: se arma con los precios de cada actualización (últimas ~30 horas)
+        spark = (prev.get(sym, {}).get("spark") or [])[-29:] + [round(price, 4)]
+        res.append({"symbol": sym, "name": t.get("nombre", sym), "price": round(price, 4),
+                    "change": round(chg, 2) if chg is not None else None, "spark": spark})
     print(f"Mercados: {len(res)} de {len(cfg.get('mercados', []))}")
     return res
 
@@ -449,7 +468,7 @@ def main():
         cfg = json.load(f)
     prev = previous_output()
     with ThreadPoolExecutor(max_workers=2) as pool:
-        f_news, f_mk = pool.submit(collect, cfg), pool.submit(markets, cfg)
+        f_news, f_mk = pool.submit(collect, cfg), pool.submit(markets, cfg, prev.get("markets") or [])
         raw, mk = f_news.result(), f_mk.result()
     print(f"Noticias leídas: {len(raw)}")
     items = score_clusters(cluster(raw), cfg)

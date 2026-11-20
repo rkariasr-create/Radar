@@ -446,8 +446,10 @@ async function liveCrypto() {
   try {
     const d = await (await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true")).json();
     for (const [id, sym] of [["bitcoin", "BTC-USD"], ["ethereum", "ETH-USD"]]) {
-      const m = (DATA.markets || []).find(x => x.symbol === sym);
-      if (m && d[id]) { m.price = d[id].usd; m.change = +d[id].usd_24h_change.toFixed(2); }
+      if (!d[id]) continue;
+      let m = DATA.markets.find(x => x.symbol === sym);
+      if (!m) { m = {symbol: sym, name: id === "bitcoin" ? "Bitcoin" : "Ethereum", spark: []}; DATA.markets.push(m); }
+      m.price = d[id].usd; m.change = +d[id].usd_24h_change.toFixed(2);
     }
     renderMarkets();
     $("mkNote").textContent = "Cripto en vivo. Acciones con algunos minutos de retraso.";
