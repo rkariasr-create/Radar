@@ -2,7 +2,7 @@ name: Actualizar Radar
 
 on:
   schedule:
-    - cron: "17 */3 * * *"   # cada 3 horas
+    - cron: "11 * * * *"     # cada hora
   workflow_dispatch:          # botón "Run workflow" para correrlo a mano
   push:
     branches: [main]

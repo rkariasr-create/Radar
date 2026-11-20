@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """
-Radar 360 — junta noticias de muchas fuentes (RSS + Google News),
-quita duplicados, las puntúa según tu perfil (config.json) y genera news.json.
+Radar · generador de noticias
 
-Si existe la variable GEMINI_API_KEY (gratis en Google AI Studio), además
-pide a la IA un "brief del día" y un resumen en español de las noticias top.
-Sin esa clave todo funciona igual, solo sin resúmenes de IA.
+Junta noticias de muchas fuentes (RSS + Google News), quita duplicados,
+las puntúa según tu perfil (config.json), agrupa historias, detecta
+tendencias, trae precios de mercado y genera news.json.
+
+Con GEMINI_API_KEY (gratis en Google AI Studio) además escribe en español:
+  - el resumen del día
+  - las historias principales (varios titulares de distintos medios = 1 historia)
+  - un resumen de una frase por noticia
+Para cuidar el límite gratis, la IA corre como máximo cada AI_INTERVAL_MIN
+minutos (180 por defecto); entre medias se reutiliza el último resultado.
 """
 import html
 import json
@@ -17,24 +23,44 @@ import time
 import unicodedata
 import urllib.parse
 import urllib.request
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import feedparser
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-UA = "Mozilla/5.0 (compatible; Radar360/1.0; +https://github.com)"
+OUT = os.path.join(ROOT, "news.json")
+UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
 NOW = datetime.now(timezone.utc)
 
 STOPWORDS = set("""
-a al algo ante como con contra de del desde donde el ella ellos en entre era es esa ese esta este fue ha han hay la las le les lo los mas me muy no nos o para pero por que se sin sobre son su sus tambien un una unos y ya
-the a an and or of to in on for with at by from is are was were be been it its this that as after over into new says say will can how why what who than more about up out his her their your our not but has have
+a al algo ante como con contra de del desde donde el ella ellos en entre era es esa ese esta este fue ha han hay la las le les lo los mas me muy no nos o para pero por que se sin sobre son su sus tambien un una unos y ya tras segun hoy dia cada
+the a an and or of to in on for with at by from is are was were be been it its this that as after over into new says say will can how why what who than more about out off his her their your our not but has have amid could would may just now today here
+""".split())
+
+# Sinónimos para reconocer la misma historia contada con otras palabras
+SYN = {
+    "share": "stock", "acciones": "stock", "accion": "stock", "equity": "stock",
+    "tank": "fall", "slide": "fall", "slid": "fall", "drop": "fall", "dive": "fall", "slip": "fall", "plunge": "fall",
+    "sink": "fall", "tumble": "fall", "fell": "fall", "cae": "fall", "caen": "fall", "plummet": "fall", "crash": "fall",
+    "retreat": "fall", "slump": "fall", "baja": "fall", "desploma": "fall",
+    "jump": "rise", "soar": "rise", "surge": "rise", "rally": "rise", "climb": "rise", "gain": "rise", "sube": "rise",
+    "dispara": "rise", "spike": "rise",
+}
+
+TREND_STOP = set("""
+the a an and or of to in on for with at by from is are was why how what who this that its as after over new says will can
+el la los las un una de del en y por para con que como su sus al se lo es tras segun hoy
+ai ia ceo ipo us eu uk news stock stocks market markets update weekly review exclusive report live breaking analysis opinion video podcast
+wall street inc corp co ltd group tech big top best here these those first
+lunes martes miercoles jueves viernes sabado domingo monday tuesday wednesday thursday friday saturday sunday
+enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre january february march april may june july august september october november december
 """.split())
 
 
 # ---------------------------------------------------------------- utilidades
 def norm(text: str) -> str:
-    """minúsculas, sin acentos, espacios simples."""
     text = unicodedata.normalize("NFKD", text or "")
     text = "".join(c for c in text if not unicodedata.combining(c))
     return re.sub(r"\s+", " ", text.lower()).strip()
@@ -46,29 +72,35 @@ def strip_tags(text: str) -> str:
 
 
 def kw_regex(words):
-    """Regex con límites de palabra para una lista de palabras clave."""
     parts = [re.escape(norm(w)) for w in words if w.strip()]
     if not parts:
         return None
     return re.compile(r"(?<![a-z0-9])(" + "|".join(sorted(parts, key=len, reverse=True)) + r")(?![a-z0-9])")
 
 
+def stem(w: str) -> str:
+    if w in SYN:
+        return SYN[w]
+    for suf, rep in (("ing", ""), ("ies", "y"), ("ed", ""), ("s", "")):
+        if len(w) > len(suf) + 3 and w.endswith(suf) and not w.endswith("ss"):
+            w = w[: -len(suf)] + rep
+            break
+    return SYN.get(w, w)
+
+
 def tokens(title: str) -> set:
     words = re.findall(r"[a-z0-9]+", norm(title))
-    return {w for w in words if len(w) > 2 and w not in STOPWORDS}
+    return {stem(w) for w in words if len(w) > 2 and w not in STOPWORDS}
 
 
 def gnews_url(q: str, idioma: str) -> str:
-    if idioma == "es":
-        hl, gl, ceid = "es-419", "US", "US:es-419"
-    else:
-        hl, gl, ceid = "en-US", "US", "US:en"
-    query = urllib.parse.quote(f"{q} when:2d")
+    hl, gl, ceid = ("es-419", "US", "US:es-419") if idioma == "es" else ("en-US", "US", "US:en")
+    query = urllib.parse.quote(f"{q} when:1d")
     return f"https://news.google.com/rss/search?q={query}&hl={hl}&gl={gl}&ceid={ceid}"
 
 
-def fetch(url: str, timeout: int = 20) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/rss+xml, application/xml, text/xml, */*"})
+def fetch(url: str, timeout: int = 15) -> bytes:
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/rss+xml, application/xml, application/json, text/xml, */*"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
@@ -84,7 +116,7 @@ def entry_time(e):
     return None
 
 
-# ---------------------------------------------------------------- recolección
+# ---------------------------------------------------------------- noticias
 def read_source(src: dict) -> list:
     name, url = src["nombre"], src["url"]
     try:
@@ -99,7 +131,6 @@ def read_source(src: dict) -> list:
         if not title or not link:
             continue
         source_name = name
-        # En Google News el medio real viene en <source> y al final del título
         if src.get("google"):
             gsrc = e.get("source") or {}
             real = gsrc.get("title") if isinstance(gsrc, dict) else None
@@ -109,15 +140,13 @@ def read_source(src: dict) -> list:
                 source_name = real.strip()
                 if title.endswith(" - " + source_name):
                     title = title[: -len(" - " + source_name)].strip()
-        summary = "" if src.get("google") else strip_tags(e.get("summary", ""))[:320]
+        summary = "" if src.get("google") else strip_tags(e.get("summary", ""))
+        if len(summary) > 260:
+            summary = summary[:260].rsplit(" ", 1)[0] + "…"
         items.append({
-            "title": title,
-            "link": link,
-            "source": source_name,
-            "published": entry_time(e),
-            "summary": summary,
-            "feed_topic": src.get("tema"),
-            "feed_weight": src.get("peso", 0),
+            "title": title, "link": link, "source": source_name,
+            "published": entry_time(e), "summary": summary,
+            "feed_topic": src.get("tema"), "feed_weight": src.get("peso", 0),
         })
     print(f"  ✓ {name}: {len(items)}")
     return items
@@ -126,36 +155,29 @@ def read_source(src: dict) -> list:
 def collect(cfg: dict) -> list:
     sources = list(cfg.get("fuentes", []))
     for b in cfg.get("busquedas_google_news", []):
-        sources.append({
-            "nombre": f"Google News · {b['q']}",
-            "url": gnews_url(b["q"], b.get("idioma", "es")),
-            "tema": b.get("tema"),
-            "google": True,
-        })
+        sources.append({"nombre": f"Google News: {b['q']}", "url": gnews_url(b["q"], b.get("idioma", "es")),
+                        "tema": b.get("tema"), "google": True})
     print(f"Leyendo {len(sources)} fuentes…")
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=12) as pool:
         results = list(pool.map(read_source, sources))
     return [it for batch in results for it in batch]
 
 
-# ---------------------------------------------------------------- puntuación
 def cluster(items: list) -> list:
     """Agrupa la misma noticia publicada por varios medios."""
     clusters = []
     for it in sorted(items, key=lambda x: x["published"] or NOW, reverse=True):
         tk = tokens(it["title"])
-        it["_tk"] = tk
         placed = False
         if len(tk) >= 3:
             for c in clusters:
-                inter = len(tk & c["_tk"])
-                union = len(tk | c["_tk"]) or 1
-                if inter >= 3 and inter / union >= 0.45:
+                inter = len(tk & c["tk"])
+                if inter >= 3 and inter / (len(tk | c["tk"]) or 1) >= 0.42:
                     c["members"].append(it)
                     placed = True
                     break
         if not placed:
-            clusters.append({"_tk": tk, "members": [it]})
+            clusters.append({"tk": tk, "members": [it]})
     return clusters
 
 
@@ -169,119 +191,249 @@ def score_clusters(clusters: list, cfg: dict) -> list:
     out = []
     for c in clusters:
         members = c["members"]
-        lead = max(members, key=lambda m: (m["feed_weight"], len(m["summary"])))
+        lead = max(members, key=lambda m: (bool(m["summary"]), m["feed_weight"], len(m["summary"])))
+        titles = norm(" ".join(m["title"] for m in members))
         text = norm(" ".join(m["title"] + " " + m["summary"] for m in members))
-        if exclude_re and exclude_re.search(text):
+        if exclude_re and exclude_re.search(titles):
             continue
         newest = max((m["published"] for m in members if m["published"]), default=None)
         age_h = (NOW - newest).total_seconds() / 3600 if newest else 24
         if age_h > max_age:
             continue
 
-        feed_topics = [m["feed_topic"] for m in members if m["feed_topic"] in topics]
+        # Temas por palabras clave (el título pesa doble); el tema de la fuente solo suma un poco.
         topic_scores = {}
         for key, rx in topic_re.items():
-            hits = len(set(rx.findall(text))) if rx else 0
-            # el tema de la fuente suma solo si la mayoría de medios lo comparte
-            if feed_topics.count(key) * 2 >= len(members):
-                hits += 1
+            if not rx:
+                continue
+            in_title = set(rx.findall(titles))
+            hits = 2 * len(in_title) + len(set(rx.findall(text)) - in_title)
             if hits:
-                topic_scores[key] = min(hits, 3) * topics[key].get("peso", 1)
-        if not topic_scores and feed_topics:
-            key = max(set(feed_topics), key=feed_topics.count)
-            topic_scores[key] = topics[key].get("peso", 1)
+                topic_scores[key] = min(hits, 4) * topics[key].get("peso", 1)
+        feed_topics = [m["feed_topic"] for m in members if m["feed_topic"] in topics]
+        if feed_topics:
+            fk = max(set(feed_topics), key=feed_topics.count)
+            topic_scores[fk] = topic_scores.get(fk, 0) + topics[fk].get("peso", 1)
         if not topic_scores:
             continue
 
         n_sources = len({m["source"] for m in members})
-        urgent = len(set(urgent_re.findall(text))) if urgent_re else 0
+        urgent = len(set(urgent_re.findall(titles))) if urgent_re else 0
         base = sum(topic_scores.values()) + 6 * math.log2(n_sources) + 2 * min(urgent, 2)
         base += max(m["feed_weight"] for m in members)
-        recency = 0.35 + 0.65 * math.exp(-max(age_h, 0) / 16)
-        score = round(base * recency, 2)
+        recency = 0.35 + 0.65 * math.exp(-max(age_h, 0) / 14)
 
         seen, others = {lead["source"]}, []
         for m in members:
             if m["source"] not in seen:
                 seen.add(m["source"])
-                others.append({"source": m["source"], "link": m["link"]})
+                others.append({"source": m["source"], "link": m["link"], "title": m["title"]})
 
         out.append({
-            "id": f"n{len(out)}",
-            "title": lead["title"],
-            "link": lead["link"],
-            "source": lead["source"],
-            "published": newest.isoformat() if newest else None,
+            "title": lead["title"], "link": lead["link"], "source": lead["source"],
+            "published": newest.isoformat(timespec="seconds") if newest else None,
             "summary": lead["summary"],
-            "topics": sorted(topic_scores, key=topic_scores.get, reverse=True),
-            "n_sources": n_sources,
-            "also": others[:6],
-            "urgent": urgent > 0,
-            "score": score,
+            "topics": sorted(topic_scores, key=topic_scores.get, reverse=True)[:2],
+            "n_sources": n_sources, "also": others[:5],
+            "score": round(base * recency, 2),
         })
     out.sort(key=lambda x: x["score"], reverse=True)
+    out = out[: cfg.get("max_noticias", 150)]
     for i, it in enumerate(out):
         it["id"] = f"n{i}"
-    return out[: cfg.get("max_noticias", 150)]
+    return out
 
 
-# ---------------------------------------------------------------- IA opcional
-def ai_enrich(items: list, cfg: dict):
-    key = os.environ.get("GEMINI_API_KEY", "").strip()
-    if not key or not items:
-        print("IA: sin GEMINI_API_KEY, se omiten resúmenes.")
-        return None
-    top = items[:40]
-    listado = "\n".join(f'{it["id"]} | {it["source"]} | {it["title"]} | {it["summary"][:200]}' for it in top)
-    prompt = f"""Eres el analista personal de esta persona. Perfil: {cfg.get('perfil', '')}
+def trends(items: list, n: int = 12) -> list:
+    """Nombres propios que más se repiten en los titulares (Anthropic, Nvidia, Fed…)."""
+    counts, display = Counter(), {}
+    for it in items:
+        words = re.findall(r"[A-Za-zÀ-ÿ][\w&\.'’-]*", it["title"])
+        if len(words) < 3:
+            continue
+        caps = sum(1 for w in words if w[0].isupper())
+        title_case = caps / len(words) > 0.6  # "Titulares En Mayúsculas": solo cuentan siglas
+        seen = set()
+        for i, w in enumerate(words):
+            w = re.sub(r"(['’]s|['’])$", "", w.strip(".-"))
+            key = norm(w)
+            acronym = w.isupper() and 2 < len(w) <= 5
+            proper = w[:1].isupper() and i > 0 and not title_case
+            if not (acronym or proper) or len(key) < 3 or key in TREND_STOP or key in STOPWORDS or key in seen:
+                continue
+            seen.add(key)
+            counts[key] += 1 + min(it["n_sources"] - 1, 3) * 0.5
+            display.setdefault(key, w)
+    return [{"term": display[k], "count": round(v)} for k, v in counts.most_common(n) if v >= 2.5]
 
-Estas son las noticias más relevantes de las últimas horas (id | medio | título | extracto):
-{listado}
 
-Responde SOLO con JSON válido con esta forma:
-{{"brief": ["5 a 7 puntos en español, cada uno de 1-2 frases: qué pasó y por qué importa para las empresas o los mercados"],
-  "resumenes": {{"<id>": "1 frase en español: qué pasó y su impacto"}}}}
-Incluye en "resumenes" todos los id. No inventes datos que no estén en los titulares."""
-    models = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-flash-latest", "gemini-2.5-flash"] if m]
-    body = json.dumps({
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.3},
-    }).encode()
+# ---------------------------------------------------------------- mercados
+def markets(cfg: dict) -> list:
+    def one(t):
+        sym = t["symbol"]
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym)}?range=1mo&interval=1d"
+        try:
+            r = json.loads(fetch(url, timeout=12))["chart"]["result"][0]
+            closes = [c for c in r["indicators"]["quote"][0]["close"] if c is not None]
+            price = r["meta"].get("regularMarketPrice") or closes[-1]
+            prev = closes[-2] if len(closes) >= 2 else None
+            if closes and abs(closes[-1] - price) / price > 0.0005:
+                prev = closes[-1]  # el día de hoy aún no tiene vela diaria
+            return {"symbol": sym, "name": t.get("nombre", sym), "price": round(price, 4),
+                    "change": round((price / prev - 1) * 100, 2) if prev else None,
+                    "spark": [round(c, 4) for c in closes[-22:]]}
+        except Exception as ex:
+            print(f"  ✗ mercado {sym}: {ex}")
+            return None
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        res = [m for m in pool.map(one, cfg.get("mercados", [])) if m]
+    print(f"Mercados: {len(res)} de {len(cfg.get('mercados', []))}")
+    return res
+
+
+# ---------------------------------------------------------------- IA (opcional)
+def previous_output():
+    try:
+        with open(OUT, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def gemini(prompt: str, key: str):
+    models = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"] if m]
+    body = json.dumps({"contents": [{"parts": [{"text": prompt}]}],
+                       "generationConfig": {"responseMimeType": "application/json", "temperature": 0.3}}).encode()
     for model in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", "x-goog-api-key": key})
         try:
-            with urllib.request.urlopen(req, timeout=90) as r:
+            with urllib.request.urlopen(req, timeout=120) as r:
                 data = json.loads(r.read())
             text = data["candidates"][0]["content"]["parts"][0]["text"]
             text = re.sub(r"^```(json)?|```$", "", text.strip()).strip()
-            result = json.loads(text)
-            res = result.get("resumenes", {})
-            for it in items:
-                if it["id"] in res:
-                    it["ai_summary"] = str(res[it["id"]])
-            print(f"IA: brief generado con {model}.")
-            return [str(p) for p in result.get("brief", [])][:7]
+            print(f"IA: respuesta de {model}.")
+            return json.loads(text)
         except Exception as ex:
             print(f"IA: falló {model}: {ex}")
     return None
+
+
+def ai_enrich(items: list, cfg: dict, prev: dict) -> dict:
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    interval = int(os.environ.get("AI_INTERVAL_MIN", "180"))
+    prev_ai = prev.get("ai") or {}
+    if not key:
+        print("IA: sin GEMINI_API_KEY, se usan historias automáticas.")
+        return {}
+    try:
+        if prev_ai.get("at") and (NOW - datetime.fromisoformat(prev_ai["at"])).total_seconds() < interval * 60:
+            print(f"IA: se reutiliza el resultado de {prev_ai['at']}.")
+            return prev_ai
+    except Exception:
+        pass
+
+    top = items[:60]
+    listado = "\n".join(f'{it["id"]} | {it["source"]} | {it["title"]} | {it["summary"][:160]}' for it in top)
+    temas = ", ".join(cfg.get("temas", {}).keys())
+    prompt = f"""Eres el analista personal de esta persona. Perfil: {cfg.get('perfil', '')}
+
+Noticias más relevantes de las últimas horas (id | medio | título | extracto):
+{listado}
+
+Responde SOLO con JSON válido, todo en español neutro, tono sobrio de periódico económico (sin exclamaciones ni emojis):
+{{
+ "brief": ["4 a 6 frases. Cada una cuenta un hecho distinto y por qué importa. Máximo 35 palabras cada una."],
+ "historias": [
+   {{"titulo": "titular en español, máximo 12 palabras",
+     "resumen": "2 o 3 frases con los datos clave",
+     "por_que_importa": "1 frase sobre el impacto en empresas, empleo o inversión",
+     "tema": "uno de: {temas}",
+     "ids": ["ids de TODAS las noticias de la lista que tratan este mismo hecho"]}}
+ ],
+ "resumenes": {{"<id>": "1 frase en español: qué pasó"}}
+}}
+Reglas: 5 a 8 historias ordenadas por importancia; agrupa en una misma historia los titulares del mismo hecho aunque estén redactados distinto o en otro idioma. Incluye en "resumenes" todos los id. No inventes datos que no estén en la lista."""
+    result = gemini(prompt, key)
+    if not result:
+        return prev_ai
+    by_id = {it["id"]: it for it in top}
+    stories = []
+    for s in result.get("historias", [])[:8]:
+        links = [by_id[i]["link"] for i in s.get("ids", []) if i in by_id]
+        if links:
+            stories.append({k: str(s.get(k, "")) for k in ("titulo", "resumen", "por_que_importa", "tema")} | {"links": links})
+    summaries = {by_id[i]["link"]: str(t) for i, t in result.get("resumenes", {}).items() if i in by_id}
+    return {"at": NOW.isoformat(timespec="seconds"), "brief": [str(p) for p in result.get("brief", [])][:6],
+            "stories": stories, "summaries": summaries}
+
+
+def attach_ai(items: list, ai: dict) -> list:
+    by_link = {}
+    for it in items:
+        by_link[it["link"]] = it["id"]
+        for a in it["also"]:
+            by_link.setdefault(a["link"], it["id"])
+    for it in items:
+        s = (ai.get("summaries") or {}).get(it["link"])
+        if s:
+            it["ai_summary"] = s
+    stories = []
+    for s in ai.get("stories", []):
+        ids = list(dict.fromkeys(by_link[l] for l in s["links"] if l in by_link))
+        if ids:
+            stories.append({k: v for k, v in s.items() if k != "links"} | {"ids": ids, "ai": True})
+    return stories
+
+
+def auto_stories(items: list, trend_list: list, k: int = 5) -> list:
+    """Sin IA: una historia por cada tendencia fuerte, con sus titulares."""
+    stories, used = [], set()
+    for t in trend_list:
+        rx = re.compile(r"(?<![a-z0-9])" + re.escape(norm(t["term"])) + r"(?![a-z0-9])")
+        group = [it for it in items[:80] if it["id"] not in used and rx.search(norm(it["title"]))]
+        if len(group) < 3:
+            continue
+        lead = max(group[:6], key=lambda it: (bool(it.get("ai_summary") or it["summary"]), it["n_sources"]))
+        group.remove(lead)
+        group.insert(0, lead)
+        used.update(it["id"] for it in group)
+        stories.append({"titulo": lead["title"], "resumen": lead.get("ai_summary") or lead["summary"],
+                        "por_que_importa": "", "tema": lead["topics"][0], "ids": [it["id"] for it in group[:10]],
+                        "foco": t["term"], "ai": False})
+        if len(stories) >= k:
+            break
+    return stories
 
 
 # ---------------------------------------------------------------- main
 def main():
     with open(os.path.join(ROOT, "config.json"), encoding="utf-8") as f:
         cfg = json.load(f)
-    raw = collect(cfg)
+    prev = previous_output()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        f_news, f_mk = pool.submit(collect, cfg), pool.submit(markets, cfg)
+        raw, mk = f_news.result(), f_mk.result()
     print(f"Noticias leídas: {len(raw)}")
     items = score_clusters(cluster(raw), cfg)
     print(f"Noticias relevantes tras filtrar y agrupar: {len(items)}")
     if not items:
         sys.exit("No se obtuvo ninguna noticia; se conserva el news.json anterior.")
-    brief = ai_enrich(items, cfg)
-    out = {"generated_at": NOW.isoformat(), "brief": brief, "items": items}
-    with open(os.path.join(ROOT, "news.json"), "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=1)
-    print("Listo: news.json actualizado.")
+    tr = trends(items)
+    ai = ai_enrich(items, cfg, prev)
+    stories = attach_ai(items, ai) or auto_stories(items, tr)
+    out = {
+        "generated_at": NOW.isoformat(timespec="seconds"),
+        "brief": ai.get("brief") or None,
+        "stories": stories,
+        "trends": tr,
+        "markets": mk or prev.get("markets") or [],
+        "ai": ai or None,
+        "items": items,
+    }
+    with open(OUT, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"Listo: news.json ({os.path.getsize(OUT)//1024} KB), {len(stories)} historias, {len(tr)} tendencias.")
 
 
 if __name__ == "__main__":

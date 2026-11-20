@@ -1,69 +1,93 @@
 {
-  "titulo": "Radar 360",
+  "titulo": "Radar",
   "perfil": "Emprendedor/ejecutivo en América Latina. Me interesa la inteligencia artificial (empresas como OpenAI, Anthropic, Google, Nvidia), startups y rondas de inversión, economía global, movimientos de bolsa, bitcoin y cripto, tendencias de marketing y, sobre todo, cómo todo esto impacta a las empresas.",
   "horas_maximas": 48,
   "max_noticias": 150,
-
   "temas": {
-    "ia":        { "nombre": "IA",        "peso": 3, "palabras": ["inteligencia artificial", "ia", "ia generativa", "artificial intelligence", "ai", "genai", "openai", "anthropic", "claude", "chatgpt", "gpt", "gemini", "deepmind", "llm", "agentes de ia", "ai agent", "ai agents", "nvidia", "mistral", "deepseek", "xai", "grok", "hugging face", "machine learning", "modelo de lenguaje"] },
-    "startups":  { "nombre": "Startups",  "peso": 2, "palabras": ["startup", "startups", "emprendimiento", "ronda de inversion", "venture capital", "capital de riesgo", "seed", "serie a", "series a", "series b", "series c", "unicornio", "unicorn", "y combinator", "funding", "raises", "levanta", "valuation", "valoracion", "ipo", "salida a bolsa"] },
-    "economia":  { "nombre": "Economía",  "peso": 2, "palabras": ["inflacion", "inflation", "fed", "reserva federal", "tasas de interes", "interest rates", "rate cut", "recesion", "recession", "pib", "gdp", "aranceles", "tariffs", "tariff", "desempleo", "jobs report", "bce", "fmi", "imf", "banco central", "economia", "economy"] },
-    "mercados":  { "nombre": "Bolsa",     "peso": 2, "palabras": ["bolsa", "acciones", "stocks", "stock", "wall street", "s&p 500", "nasdaq", "dow jones", "earnings", "resultados trimestrales", "shares", "mercados", "markets", "sell-off", "rally", "bonos", "treasury"] },
-    "cripto":    { "nombre": "Bitcoin y cripto", "peso": 2, "palabras": ["bitcoin", "btc", "ethereum", "cripto", "criptomonedas", "crypto", "stablecoin", "blockchain", "binance", "coinbase"] },
-    "marketing": { "nombre": "Marketing", "peso": 2, "palabras": ["marketing", "publicidad", "advertising", "ads", "seo", "redes sociales", "social media", "tiktok", "instagram", "influencer", "influencers", "branding", "consumidor", "consumer", "ecommerce", "e-commerce", "comercio electronico"] },
-    "empresas":  { "nombre": "Impacto en empresas", "peso": 2, "palabras": ["despidos", "layoffs", "adquisicion", "acquisition", "adquiere", "acquires", "compra", "fusion", "merger", "ceo", "demanda", "lawsuit", "regulacion", "regulation", "antitrust", "productividad", "automatizacion", "automation", "empleos", "jobs"] }
+    "ia": {
+      "nombre": "IA",
+      "peso": 3,
+      "palabras": ["inteligencia artificial", "ia", "ia generativa", "artificial intelligence", "ai", "genai", "openai", "anthropic", "claude", "chatgpt", "gpt", "gemini", "deepmind", "llm", "agentes de ia", "ai agent", "ai agents", "nvidia", "mistral", "deepseek", "xai", "grok", "hugging face", "machine learning", "modelo de lenguaje"]
+    },
+    "startups": {
+      "nombre": "Startups",
+      "peso": 2,
+      "palabras": ["startup", "startups", "emprendimiento", "ronda de inversion", "venture capital", "capital de riesgo", "seed", "serie a", "series a", "series b", "series c", "unicornio", "unicorn", "y combinator", "funding", "raises", "levanta", "valuation", "valoracion", "ipo", "salida a bolsa"]
+    },
+    "economia": {
+      "nombre": "Economía",
+      "peso": 2,
+      "palabras": ["inflacion", "inflation", "fed", "reserva federal", "tasas de interes", "interest rates", "rate cut", "recesion", "recession", "pib", "gdp", "aranceles", "tariffs", "tariff", "desempleo", "jobs report", "bce", "fmi", "imf", "banco central", "economia", "economy"]
+    },
+    "mercados": {
+      "nombre": "Bolsa",
+      "peso": 2,
+      "palabras": ["bolsa", "acciones", "stocks", "stock", "wall street", "s&p 500", "nasdaq", "dow jones", "earnings", "resultados trimestrales", "shares", "mercados", "markets", "sell-off", "rally", "bonos", "treasury"]
+    },
+    "cripto": {
+      "nombre": "Cripto",
+      "peso": 2,
+      "palabras": ["bitcoin", "btc", "ethereum", "cripto", "criptomonedas", "crypto", "stablecoin", "blockchain", "binance", "coinbase"]
+    },
+    "marketing": {
+      "nombre": "Marketing",
+      "peso": 2,
+      "palabras": ["marketing", "publicidad", "advertising", "ads", "seo", "redes sociales", "social media", "tiktok", "instagram", "influencer", "influencers", "branding", "consumidor", "consumer", "ecommerce", "e-commerce", "comercio electronico"]
+    },
+    "empresas": {
+      "nombre": "Empresas",
+      "peso": 2,
+      "palabras": ["despidos", "layoffs", "adquisicion", "acquisition", "adquiere", "acquires", "fusion", "merger", "demanda", "lawsuit", "regulacion", "regulation", "antitrust", "productividad", "automatizacion", "automation", "empleos"]
+    }
   },
-
   "senales_urgentes": ["hack", "hackeo", "hacked", "breach", "filtracion", "escandalo", "scandal", "demanda", "lawsuit", "quiebra", "bankruptcy", "renuncia", "resigns", "despidos", "layoffs", "record", "historico", "prohibe", "bans", "investigacion", "investigation", "sin precedentes", "unprecedented", "pide disculpas", "apologizes", "colapso", "crash", "se desploma", "plunges", "soars", "se dispara"],
-
   "excluir": ["horoscopo", "loteria", "receta"],
-
   "fuentes": [
-    { "nombre": "Techmeme",              "url": "https://www.techmeme.com/feed.xml", "peso": 2 },
-    { "nombre": "TechCrunch",            "url": "https://techcrunch.com/feed/", "tema": "startups" },
-    { "nombre": "TechCrunch IA",         "url": "https://techcrunch.com/category/artificial-intelligence/feed/", "tema": "ia" },
-    { "nombre": "The Verge IA",          "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", "tema": "ia" },
+    { "nombre": "Techmeme", "url": "https://www.techmeme.com/feed.xml", "peso": 2 },
+    { "nombre": "TechCrunch", "url": "https://techcrunch.com/feed/", "tema": "startups" },
+    { "nombre": "TechCrunch IA", "url": "https://techcrunch.com/category/artificial-intelligence/feed/", "tema": "ia" },
+    { "nombre": "The Verge IA", "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", "tema": "ia" },
     { "nombre": "MIT Technology Review", "url": "https://www.technologyreview.com/feed/", "tema": "ia" },
-    { "nombre": "Hacker News",           "url": "https://hnrss.org/frontpage?points=200" },
-    { "nombre": "CNBC",                  "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html", "peso": 1 },
-    { "nombre": "CNBC Tech",             "url": "https://www.cnbc.com/id/19854910/device/rss/rss.html" },
-    { "nombre": "MarketWatch",           "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories", "tema": "mercados" },
-    { "nombre": "Yahoo Finance",         "url": "https://finance.yahoo.com/news/rssindex", "tema": "mercados" },
-    { "nombre": "BBC Business",          "url": "https://feeds.bbci.co.uk/news/business/rss.xml", "tema": "economia" },
-    { "nombre": "CoinDesk",              "url": "https://www.coindesk.com/arc/outboundfeeds/rss/", "tema": "cripto" },
-    { "nombre": "Cointelegraph",         "url": "https://cointelegraph.com/rss", "tema": "cripto" },
-    { "nombre": "Marketing Dive",        "url": "https://www.marketingdive.com/feeds/news/", "tema": "marketing" },
-    { "nombre": "Social Media Today",    "url": "https://www.socialmediatoday.com/feeds/news/", "tema": "marketing" },
-    { "nombre": "Xataka",                "url": "https://feeds.weblogssl.com/xataka2" },
-    { "nombre": "El País Economía",      "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada", "tema": "economia" }
+    { "nombre": "Hacker News", "url": "https://hnrss.org/frontpage?points=200" },
+    { "nombre": "CNBC", "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html", "peso": 1 },
+    { "nombre": "CNBC Tech", "url": "https://www.cnbc.com/id/19854910/device/rss/rss.html" },
+    { "nombre": "MarketWatch", "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories", "tema": "mercados" },
+    { "nombre": "Yahoo Finance", "url": "https://finance.yahoo.com/news/rssindex", "tema": "mercados" },
+    { "nombre": "BBC Business", "url": "https://feeds.bbci.co.uk/news/business/rss.xml", "tema": "economia" },
+    { "nombre": "CoinDesk", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/", "tema": "cripto" },
+    { "nombre": "Cointelegraph", "url": "https://cointelegraph.com/rss", "tema": "cripto" },
+    { "nombre": "Marketing Dive", "url": "https://www.marketingdive.com/feeds/news/", "tema": "marketing" },
+    { "nombre": "Social Media Today", "url": "https://www.socialmediatoday.com/feeds/news/", "tema": "marketing" },
+    { "nombre": "Xataka", "url": "https://feeds.weblogssl.com/xataka2" },
+    { "nombre": "El País Economía", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada", "tema": "economia" }
   ],
-
   "busquedas_google_news": [
-    { "q": "inteligencia artificial",                     "idioma": "es", "tema": "ia" },
-    { "q": "OpenAI OR Anthropic OR DeepMind OR Nvidia",   "idioma": "en", "tema": "ia" },
-    { "q": "AI regulation OR AI safety",                  "idioma": "en", "tema": "ia" },
-    { "q": "startup funding round",                       "idioma": "en", "tema": "startups" },
-    { "q": "startups inversión América Latina",           "idioma": "es", "tema": "startups" },
-    { "q": "economía mundial",                            "idioma": "es", "tema": "economia" },
-    { "q": "economía América Latina",                     "idioma": "es", "tema": "economia" },
-    { "q": "stock market today",                          "idioma": "en", "tema": "mercados" },
-    { "q": "bitcoin",                                     "idioma": "es", "tema": "cripto" },
-    { "q": "tendencias marketing digital",                "idioma": "es", "tema": "marketing" }
+    { "q": "inteligencia artificial", "idioma": "es", "tema": "ia" },
+    { "q": "OpenAI OR Anthropic OR DeepMind OR Nvidia", "idioma": "en", "tema": "ia" },
+    { "q": "AI regulation OR AI safety", "idioma": "en", "tema": "ia" },
+    { "q": "startup funding round", "idioma": "en", "tema": "startups" },
+    { "q": "startups inversión América Latina", "idioma": "es", "tema": "startups" },
+    { "q": "economía mundial", "idioma": "es", "tema": "economia" },
+    { "q": "economía América Latina", "idioma": "es", "tema": "economia" },
+    { "q": "stock market today", "idioma": "en", "tema": "mercados" },
+    { "q": "bitcoin", "idioma": "es", "tema": "cripto" },
+    { "q": "tendencias marketing digital", "idioma": "es", "tema": "marketing" }
   ],
-
-  "tickers": [
-    { "proName": "FOREXCOM:SPXUSD", "title": "S&P 500" },
-    { "proName": "FOREXCOM:NSXUSD", "title": "Nasdaq 100" },
-    { "proName": "BITSTAMP:BTCUSD", "title": "Bitcoin" },
-    { "proName": "BITSTAMP:ETHUSD", "title": "Ethereum" },
-    { "proName": "NASDAQ:NVDA",     "title": "Nvidia" },
-    { "proName": "NASDAQ:MSFT",     "title": "Microsoft" },
-    { "proName": "NASDAQ:GOOGL",    "title": "Alphabet" },
-    { "proName": "NASDAQ:AAPL",     "title": "Apple" },
-    { "proName": "NASDAQ:AMZN",     "title": "Amazon" },
-    { "proName": "NASDAQ:META",     "title": "Meta" },
-    { "proName": "NASDAQ:TSLA",     "title": "Tesla" },
-    { "proName": "TVC:GOLD",        "title": "Oro" },
-    { "proName": "TVC:USOIL",       "title": "Petróleo WTI" }
+  "mercados": [
+    { "symbol": "^GSPC", "nombre": "S&P 500" },
+    { "symbol": "^IXIC", "nombre": "Nasdaq" },
+    { "symbol": "^DJI", "nombre": "Dow Jones" },
+    { "symbol": "BTC-USD", "nombre": "Bitcoin" },
+    { "symbol": "ETH-USD", "nombre": "Ethereum" },
+    { "symbol": "NVDA", "nombre": "Nvidia" },
+    { "symbol": "MSFT", "nombre": "Microsoft" },
+    { "symbol": "GOOGL", "nombre": "Alphabet" },
+    { "symbol": "AAPL", "nombre": "Apple" },
+    { "symbol": "AMZN", "nombre": "Amazon" },
+    { "symbol": "META", "nombre": "Meta" },
+    { "symbol": "TSLA", "nombre": "Tesla" },
+    { "symbol": "GC=F", "nombre": "Oro" },
+    { "symbol": "CL=F", "nombre": "Petróleo WTI" },
+    { "symbol": "EURUSD=X", "nombre": "Euro / dólar" }
   ]
 }

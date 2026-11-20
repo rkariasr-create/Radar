@@ -1,30 +1,34 @@
-# Radar 360
+# Radar
 
-Tu página propia de noticias de IA, startups, economía, bolsa, bitcoin y marketing.
-Se actualiza sola cada 3 horas y cuesta $0 (GitHub Pages + GitHub Actions + Google AI Studio gratis).
+Tu resumen diario de IA, startups, economía, bolsa, cripto y marketing. Se actualiza solo cada hora y cuesta $0
+(GitHub Pages + GitHub Actions + Google AI Studio gratis).
+
+## Qué hace
+- Lee unas 27 fuentes (medios y búsquedas de Google News) y junta la misma noticia publicada por varios medios.
+- Ordena todo según tu perfil y detecta los nombres que más se repiten (En tendencia).
+- Con la clave de Gemini escribe en español el resumen del día, las historias principales y un resumen por noticia.
+- Muestra precios de mercado (acciones con retraso, cripto en vivo).
+- Botón **Preguntar**: explica cualquier término o noticia (abre Claude, o responde dentro de la página con Gemini).
+- Se puede instalar en el celular como app y abre aunque no haya conexión.
 
 ## Archivos
-- `index.html`: la página.
-- `config.json`: tu perfil, los temas, las palabras clave, las fuentes y los tickers. **Lo único que necesitas editar.**
-- `build.py`: lee las fuentes, quita duplicados, puntúa y genera `news.json`.
-- `.github/workflows/actualizar.yml`: corre `build.py` cada 3 horas y publica la página.
+- `index.html`: la página. `sw.js` y `manifest.webmanifest`: la hacen instalable y rápida.
+- `config.json`: tu perfil, temas, palabras clave, fuentes y mercados. **Lo único que necesitas editar.**
+- `build.py`: genera `news.json`. `.github/workflows/actualizar.yml`: lo corre cada hora y publica la página.
+
+## Activar los resúmenes en español (recomendado)
+1. Crea una clave gratis en aistudio.google.com (Get API key).
+2. En GitHub: Settings, Secrets and variables, Actions, New repository secret.
+   Nombre `GEMINI_API_KEY`, valor: tu clave.
+3. Actions, Actualizar Radar, Run workflow.
+
+La IA corre como máximo cada 3 horas para no pasar el límite gratis; entre medias se reutiliza el último resumen.
 
 ## Personalizar (editando config.json en GitHub)
-- **Temas**: agrega palabras a `"palabras"` y sube `"peso"` (1 a 5) a lo que más te importe.
-- **Fuentes**: añade un bloque `{ "nombre": "...", "url": "URL del RSS", "tema": "ia" }`.
-- **Búsquedas**: en `busquedas_google_news` agrega cualquier tema, por ejemplo `{ "q": "Ecuador economía", "idioma": "es", "tema": "economia" }`.
-- **Acciones**: en `tickers` agrega por ejemplo `{ "proName": "NYSE:KO", "title": "Coca-Cola" }`.
+- **Temas**: agrega palabras a `palabras` y sube `peso` (1 a 5) a lo que más te importe.
+- **Fuentes**: `{ "nombre": "...", "url": "URL del RSS", "tema": "ia" }`.
+- **Búsquedas**: en `busquedas_google_news`, por ejemplo `{ "q": "Ecuador economía", "idioma": "es", "tema": "economia" }`.
+- **Mercados**: en `mercados`, con el símbolo de Yahoo Finance, por ejemplo `{ "symbol": "KO", "nombre": "Coca-Cola" }`.
 - **Ignorar**: palabras en `excluir`.
 
-Cada vez que guardas un cambio, la página se reconstruye sola en 1 a 2 minutos.
-
-## Si algo falla
-- En **Actions** abre la última ejecución. Las fuentes con ✗ no respondieron; puedes borrarlas de `config.json`.
-- Si GitHub te avisa por correo que desactivó el workflow por inactividad, entra a Actions y pulsa **Enable workflow**.
-
-## Botón «Consultar» (asistente)
-- **💬 Consultar** (abajo a la derecha), **💬 Preguntar sobre esto** en cada noticia, o **selecciona cualquier palabra** y toca «¿Qué es…?».
-- Por defecto abre Claude (app o web) con tu pregunta y el contexto de la noticia ya escritos: $0 con tu cuenta de Claude.
-- Para respuestas dentro de la página: ⚙️ → Gemini → pega tu clave gratis de aistudio.google.com. La clave se guarda solo en tu dispositivo, nunca en GitHub.
-- Opción de pago: ⚙️ → Claude API, con una clave de console.anthropic.com.
-- **Nunca pongas claves en config.json**: el repositorio es público.
+**Nunca pongas claves en config.json**: el repositorio es público.

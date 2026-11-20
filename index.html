@@ -2,277 +2,570 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Radar 360</title>
-<meta name="theme-color" content="#0b0f17">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Radar</title>
+<meta name="description" content="Resumen diario de IA, startups, economía, bolsa y cripto.">
+<meta name="theme-color" content="#F6F7F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16191C" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preload" href="news.json" as="fetch" crossorigin>
+<link rel="preload" href="fonts/newsreader.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/instrument-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-  :root{
-    --bg:#0b0f17; --panel:#121826; --panel2:#182033; --line:#232c40;
-    --text:#e8ecf4; --muted:#8b95a9; --accent:#5b8cff; --hot:#ff6b4a; --up:#2fbf71; --down:#ff5c5c;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif}
-  a{color:inherit;text-decoration:none}
-  .wrap{max-width:1100px;margin:0 auto;padding:0 16px 60px}
-  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:20px 0 10px}
-  h1{margin:0;font-size:22px;letter-spacing:-.02em}
-  h1 span{color:var(--accent)}
-  .updated{color:var(--muted);font-size:13px}
-  .ticker{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:0 -16px 18px;min-height:46px}
-  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
-  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-  .stat .k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
-  .stat .v{font-size:20px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
-  .stat .d{font-size:13px;font-variant-numeric:tabular-nums}
-  .up{color:var(--up)} .down{color:var(--down)}
-  .brief{background:linear-gradient(180deg,#16203a,#121826);border:1px solid #2a3960;border-radius:14px;padding:16px 18px;margin-bottom:18px}
-  .brief h2{margin:0 0 8px;font-size:15px;color:#a9c0ff}
-  .brief ul{margin:0;padding-left:18px} .brief li{margin:6px 0}
-  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5}
-  .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1}
-  .chip{white-space:nowrap;border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:6px 12px;border-radius:999px;font-size:13px;cursor:pointer}
-  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  input[type=search]{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 12px;font-size:14px;min-width:200px}
-  .item{display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;transition:border-color .15s}
-  .item:hover{border-color:#3a4a6e} a.title:hover{color:#a9c0ff}
-  .item.top{border-left:3px solid var(--hot)}
-  .meta{display:flex;flex-wrap:wrap;gap:6px 10px;color:var(--muted);font-size:12.5px;margin-bottom:4px}
-  .badge{background:var(--panel2);border-radius:6px;padding:1px 7px;font-size:11.5px;color:#b8c2d6}
-  .badge.hot{background:#3a1d17;color:#ffb39f}
-  .title{display:block;font-weight:620;font-size:16px;line-height:1.35}
-  .sum{color:#c3cad8;font-size:14px;margin-top:5px}
-  .also{font-size:12.5px;color:var(--muted);margin-top:6px}
-  .also a{text-decoration:underline;text-decoration-color:#3a4a6e}
-  .empty{color:var(--muted);text-align:center;padding:40px 0}
-  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:30px}
-  @media (max-width:720px){ .grid{grid-template-columns:repeat(2,1fr)} input[type=search]{width:100%} }
+@font-face{font-family:"Newsreader";src:url(fonts/newsreader.woff2) format("woff2-variations"),url(fonts/newsreader.woff2) format("woff2");font-weight:200 800;font-style:normal;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(fonts/instrument-sans-400.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(fonts/instrument-sans-500.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(fonts/instrument-sans-600.woff2) format("woff2");font-weight:600;font-display:swap}
+:root{
+  --paper:#F6F7F5; --surface:#FFFFFF; --ink:#1D2125; --ink2:#59616A; --ink3:#8A9198;
+  --rule:#DFE3DF; --marker:#E6F27A; --up:#17804A; --down:#C2382B; --focus:#3B5BDB;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --paper:#16191C; --surface:#1D2125; --ink:#ECEFF1; --ink2:#A7AFB6; --ink3:#78818A;
+         --rule:#2C3236; --marker:#5E6A1C; --up:#4CC487; --down:#F0776B; --focus:#8EA4FF; }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+.hidden{display:none!important}
 
-  /* ---------- Asistente de consulta ---------- */
-  .ask-item{margin-top:8px;background:none;border:1px solid var(--line);color:#a9c0ff;border-radius:8px;padding:4px 10px;font-size:12.5px;cursor:pointer}
-  .ask-item:hover{border-color:var(--accent)}
-  .fab{position:fixed;right:18px;bottom:18px;z-index:20;background:var(--accent);color:#fff;border:0;border-radius:999px;padding:13px 18px;font-size:15px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.45);cursor:pointer}
-  .sel-pill{position:absolute;z-index:25;background:#fff;color:#111;border:0;border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,.4);cursor:pointer;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .panel{position:fixed;right:18px;bottom:18px;z-index:30;width:400px;max-width:calc(100vw - 24px);height:min(640px,calc(100vh - 36px));background:var(--panel);border:1px solid #2a3960;border-radius:16px;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.6)}
-  .panel[hidden]{display:none}
-  .p-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
-  .p-head strong{flex:1}
-  .icon{background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 6px}
-  .ctx{margin:10px 14px 0;background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:12.5px;color:#b8c2d6;display:flex;gap:8px;align-items:flex-start}
-  .ctx[hidden]{display:none}
-  .ctx span{flex:1}
-  .msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
-  .msg{padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.5;max-width:92%;word-wrap:break-word}
-  .msg.user{align-self:flex-end;background:var(--accent);color:#fff}
-  .msg.bot{align-self:flex-start;background:var(--panel2)}
-  .msg.bot ul{margin:4px 0;padding-left:18px}
-  .msg.note{align-self:center;color:var(--muted);font-size:12.5px;text-align:center;background:none}
-  .quick{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px}
-  .quick button{background:var(--panel2);border:1px solid var(--line);color:#c3cad8;border-radius:999px;padding:5px 10px;font-size:12px;cursor:pointer}
-  .p-form{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
-  .p-form textarea{flex:1;resize:none;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;height:42px}
-  .btn{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:0 14px;font-weight:600;cursor:pointer}
-  .btn.ghost{background:none;border:1px solid var(--line);color:#c3cad8}
-  .p-foot{display:flex;gap:8px;padding:0 14px 12px}
-  .p-foot .btn{flex:1;padding:9px 0;font-size:13px}
-  .settings{padding:12px 14px;font-size:13px;color:#c3cad8;overflow-y:auto}
-  .settings label{display:block;margin:10px 0 4px;color:var(--muted)}
-  .settings input,.settings select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px}
-  .settings p{margin:6px 0;color:var(--muted);font-size:12.5px}
-  @media (max-width:720px){ .panel{right:0;bottom:0;width:100vw;max-width:100vw;height:88vh;border-radius:16px 16px 0 0} .fab{right:14px;bottom:14px} }
+/* ---------- estructura ---------- */
+.top{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--rule)}
+.top-in{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:12px 20px}
+.mark{font:600 21px/1 var(--serif);letter-spacing:-.01em;text-decoration:none;display:flex;align-items:center;gap:8px}
+.mark svg{width:22px;height:22px}
+.top-in .grow{flex:1}
+.search{display:flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);border-radius:8px;padding:6px 10px;width:220px}
+.search input{border:0;background:none;outline:none;font:14px var(--sans);color:var(--ink);width:100%}
+.search svg{flex:none;color:var(--ink3)}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;border:1px solid var(--ink);background:var(--ink);color:var(--paper)}
+.btn.quiet{background:none;color:var(--ink);border-color:var(--rule)}
+.btn.quiet:hover{border-color:var(--ink3)}
+
+.page{max-width:1080px;margin:0 auto;padding:0 20px 80px;display:grid;grid-template-columns:minmax(0,640px) 300px;gap:64px;justify-content:space-between}
+main{min-width:0}
+aside{padding-top:40px}
+.rail{position:sticky;top:76px}
+
+/* ---------- cabecera del día ---------- */
+.mast{padding:44px 0 8px}
+.mast h1{font:500 44px/1.08 var(--serif);letter-spacing:-.02em;margin:0;font-optical-sizing:auto}
+.mast p{margin:10px 0 0;color:var(--ink2);font-size:14px}
+.brief{margin:28px 0 8px;padding:0;list-style:none;font:400 19px/1.55 var(--serif);counter-reset:none}
+.brief li{padding:12px 0;border-top:1px solid var(--rule)}
+.brief li:first-child{border-top:0;padding-top:0}
+.setup{margin:24px 0 0;padding:14px 16px;border:1px dashed var(--rule);border-radius:10px;color:var(--ink2);font-size:14px}
+.setup b{color:var(--ink);font-weight:600}
+
+/* ---------- navegación por temas ---------- */
+.nav{position:sticky;top:var(--hh,57px);z-index:5;background:var(--paper);margin:28px 0 0;border-bottom:1px solid var(--rule)}
+.tabs{display:flex;gap:22px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);padding-right:28px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{background:none;border:0;padding:12px 0 11px;font-size:14.5px;color:var(--ink2);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--ink);font-weight:500}
+.tab small{color:var(--ink3);font-size:12px;margin-left:3px}
+
+h2.sec{font:600 14px/1 var(--sans);margin:40px 0 4px;color:var(--ink)}
+h2.sec span{color:var(--ink3);font-weight:400;margin-left:6px}
+
+/* ---------- historias ---------- */
+.story{padding:22px 0 24px;border-bottom:1px solid var(--rule);cursor:pointer}
+.story:last-child{border-bottom:0}
+.kicker{font-size:13px;color:var(--ink2);margin:0 0 6px}
+.story h3{font:600 26px/1.18 var(--serif);letter-spacing:-.012em;margin:0;font-optical-sizing:auto}
+.story:hover h3{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px}
+.story .dek{font:400 17.5px/1.6 var(--serif);color:var(--ink);margin:10px 0 0;max-width:62ch}
+.why{font:400 17.5px/1.6 var(--serif);margin:10px 0 0;max-width:62ch}
+.why mark{background:linear-gradient(transparent 12%,var(--marker) 12%,var(--marker) 88%,transparent 88%);color:inherit;padding:0 2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.srcs{font-size:13.5px;color:var(--ink2);margin-top:12px}
+
+/* ---------- lista ---------- */
+.item{display:grid;grid-template-columns:64px 1fr;gap:4px 16px;padding:16px 0;border-bottom:1px solid var(--rule);cursor:pointer;text-align:left;width:100%;background:none;border-left:0;border-right:0;border-top:0}
+.item .when{font-size:13px;color:var(--ink3);padding-top:4px;position:relative}
+.item.new .when::before{content:"";position:absolute;left:-12px;top:10px;width:6px;height:6px;border-radius:50%;background:var(--ink)}
+.item .t{font:500 18px/1.35 var(--serif);margin:0}
+.item:hover .t{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.item .s{grid-column:2;font:400 15.5px/1.5 var(--serif);color:var(--ink2);margin:2px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.item .m{grid-column:2;font-size:13px;color:var(--ink2);margin-top:4px}
+.item .m .mt{display:none}
+.more{margin:24px 0 0}
+.empty{color:var(--ink2);padding:32px 0;font-size:15px}
+
+/* ---------- barra lateral ---------- */
+.rail h2{font:600 14px/1 var(--sans);margin:0 0 10px}
+.rail h2 + p{margin:-4px 0 10px;font-size:12.5px;color:var(--ink3)}
+.mk{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
+.mk td{padding:7px 0;border-top:1px solid var(--rule)}
+.mk tr:first-child td{border-top:0}
+.mk a{text-decoration:none}
+.mk a:hover{text-decoration:underline}
+.mk .p{text-align:right;padding-left:8px}
+.mk .c{text-align:right;width:62px}
+.mk .sp{width:56px;padding-left:10px}
+.up{color:var(--up)} .down{color:var(--down)}
+.mood{font-size:13.5px;color:var(--ink2);margin:10px 0 0}
+.trends{margin:36px 0 0}
+.trends ol{list-style:none;margin:0;padding:0}
+.trends li{display:flex;justify-content:space-between;border-top:1px solid var(--rule)}
+.trends li:first-child{border-top:0}
+.trends button{flex:1;text-align:left;background:none;border:0;padding:7px 0;cursor:pointer;font-size:14px;display:flex;justify-content:space-between}
+.trends button:hover span:first-child{text-decoration:underline}
+.trends button span:last-child{color:var(--ink3);font-size:12.5px;font-variant-numeric:tabular-nums}
+.foot{margin-top:36px;font-size:12px;color:var(--ink3);line-height:1.6}
+
+/* ---------- móvil ---------- */
+.strip{display:none}
+@media (max-width:980px){
+  .page{grid-template-columns:minmax(0,1fr);gap:0;max-width:680px}
+  aside{padding-top:8px}
+  .rail{position:static}
+  .search{width:auto;flex:1;max-width:260px}
+  .top-in .grow{display:none}
+  .strip{display:flex;gap:18px;overflow-x:auto;scrollbar-width:none;padding:10px 20px;border-bottom:1px solid var(--rule);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .strip::-webkit-scrollbar{display:none}
+  .strip a{text-decoration:none;color:var(--ink2)}
+  .strip b{font-weight:500;color:var(--ink);margin-right:4px}
+  .mast{padding-top:28px}
+  .mast h1{font-size:34px}
+  .brief{font-size:17.5px;line-height:1.5}
+  .brief li{padding:10px 0}
+}
+@media (max-width:560px){
+  .top-in{gap:10px;padding:10px 16px}
+  .page{padding:0 16px 80px}
+  .strip{padding:9px 16px}
+  .mark span{display:none}
+  .story h3{font-size:23px}
+  .item{grid-template-columns:1fr;gap:2px}
+  .item .when{display:none}
+  .item .m .mt{display:inline}
+  .item.new .t::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ink);margin:0 8px 3px 0}
+  .item .s,.item .m{grid-column:1}
+}
+
+/* ---------- lector y asistente (paneles) ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,12,14,.32);z-index:40;opacity:0;transition:opacity .2s}
+.scrim.on{opacity:1}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);background:var(--surface);z-index:50;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s cubic-bezier(.2,.8,.2,1);box-shadow:-12px 0 40px rgba(0,0,0,.12)}
+.sheet.on{transform:none}
+.sheet-h{display:flex;align-items:center;gap:6px;padding:12px 16px;border-bottom:1px solid var(--rule)}
+.sheet-h .grow{flex:1;font-size:13px;color:var(--ink2)}
+.ib{background:none;border:0;border-radius:8px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer;color:var(--ink2)}
+.ib:hover{background:var(--paper);color:var(--ink)}
+.ib:disabled{opacity:.35;cursor:default;background:none}
+.sheet-b{flex:1;overflow-y:auto;padding:28px 32px 40px}
+.r-meta{font-size:13.5px;color:var(--ink2);margin:0 0 10px}
+.r-title{font:600 30px/1.15 var(--serif);letter-spacing:-.015em;margin:0;font-optical-sizing:auto}
+.r-body{font:400 19px/1.65 var(--serif);margin:18px 0 0}
+.r-body p{margin:0 0 14px}
+.r-note{font-size:14px;color:var(--ink2);margin:16px 0 0}
+.r-actions{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0 0}
+.r-also{margin:36px 0 0}
+.r-also h4{font:600 14px var(--sans);margin:0 0 4px}
+.r-also a{display:block;padding:12px 0;border-top:1px solid var(--rule);text-decoration:none}
+.r-also a:first-of-type{border-top:0}
+.r-also a:hover .at{text-decoration:underline}
+.r-also .at{font:500 16.5px/1.4 var(--serif);display:block}
+.r-also .as{font-size:13px;color:var(--ink2)}
+
+.chat{flex:1;overflow-y:auto;padding:20px 20px 8px;display:flex;flex-direction:column;gap:14px}
+.ctx{margin:14px 20px 0;padding:10px 12px;background:var(--paper);border-radius:8px;font-size:13.5px;color:var(--ink2);display:flex;gap:8px;align-items:flex-start}
+.ctx span{flex:1}
+.ctx b{color:var(--ink);font-weight:500}
+.m-user{align-self:flex-end;max-width:85%;background:var(--paper);border-radius:12px;padding:9px 13px;font-size:15px}
+.m-bot{font:400 17px/1.6 var(--serif);max-width:95%}
+.m-bot p{margin:0 0 10px} .m-bot ul{margin:0 0 10px;padding-left:20px} .m-bot li{margin:4px 0}
+.m-note{font-size:13.5px;color:var(--ink2)}
+.sugs{display:flex;gap:8px;flex-wrap:wrap;padding:4px 20px 10px}
+.sugs button{background:none;border:1px solid var(--rule);border-radius:16px;padding:6px 12px;font-size:13px;color:var(--ink2);cursor:pointer}
+.sugs button:hover{border-color:var(--ink3);color:var(--ink)}
+.compose{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--rule)}
+.compose textarea{flex:1;resize:none;border:1px solid var(--rule);background:var(--paper);color:var(--ink);border-radius:8px;padding:10px 12px;font:15px/1.4 var(--sans);height:44px;outline:none}
+.compose textarea:focus{border-color:var(--ink3)}
+.settings{padding:20px;font-size:14px}
+.settings p{color:var(--ink2);margin:0 0 14px}
+.settings label{display:block;font-weight:500;margin:14px 0 6px}
+.settings input,.settings select{width:100%;border:1px solid var(--rule);background:var(--paper);color:var(--ink);border-radius:8px;padding:9px 10px;font:14px var(--sans)}
+.pill{position:absolute;z-index:30;background:var(--ink);color:var(--paper);border:0;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:500;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.2);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:560px){ .sheet-b{padding:22px 20px 40px} .r-title{font-size:26px} .r-body{font-size:18px} }
+@media (prefers-reduced-motion:reduce){ .sheet,.scrim{transition:none} }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Radar <span>360</span></h1>
-    <div class="updated" id="updated">Cargando…</div>
-  </header>
 
-  <div class="ticker" id="ticker"></div>
-
-  <div class="grid">
-    <div class="stat"><div class="k">Bitcoin</div><div class="v" id="btc">—</div><div class="d" id="btcd"></div></div>
-    <div class="stat"><div class="k">Ethereum</div><div class="v" id="eth">—</div><div class="d" id="ethd"></div></div>
-    <div class="stat"><div class="k">Miedo / Codicia cripto</div><div class="v" id="fng">—</div><div class="d" id="fngd"></div></div>
-    <div class="stat"><div class="k">Noticias en el radar</div><div class="v" id="count">—</div><div class="d" id="countd"></div></div>
+<header class="top">
+  <div class="top-in">
+    <a class="mark" href="./" aria-label="Radar, inicio">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10.25" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="5.25" stroke="currentColor" stroke-width="1.5"/><path d="M12 12 L19.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>
+      <span>Radar</span>
+    </a>
+    <div class="grow"></div>
+    <label class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Buscar noticias" aria-label="Buscar noticias">
+    </label>
+    <button class="btn" id="askBtn">Preguntar</button>
   </div>
+  <nav class="strip" id="strip" aria-label="Mercados"></nav>
+</header>
 
-  <section class="brief" id="brief" hidden>
-    <h2>Brief del día · lo que tienes que saber</h2>
-    <ul id="briefList"></ul>
-  </section>
+<div class="page">
+  <main>
+    <section class="mast">
+      <h1 id="date">Radar</h1>
+      <p id="status">Cargando noticias…</p>
+      <ul class="brief hidden" id="brief"></ul>
+      <div class="setup hidden" id="setup">
+        Para recibir el <b>resumen del día</b> y las historias explicadas en español, agrega tu clave gratis de Gemini como secreto <b>GEMINI_API_KEY</b> en GitHub (Settings, Secrets and variables, Actions).
+      </div>
+    </section>
 
-  <div class="controls">
-    <div class="chips" id="chips"></div>
-    <input type="search" id="q" placeholder="Buscar (ej. OpenAI, Fed, Nvidia)…">
-  </div>
+    <div class="nav"><div class="tabs" id="tabs" role="tablist" aria-label="Temas"></div></div>
 
-  <main id="list"></main>
-  <footer>Se actualiza solo cada 3 horas · Datos de mercado: TradingView y CoinGecko · Noticias de sus medios originales</footer>
+    <section id="storiesSec">
+      <h2 class="sec">Historias principales</h2>
+      <div id="stories"></div>
+    </section>
+
+    <section>
+      <h2 class="sec" id="listTitle">Últimas noticias</h2>
+      <div id="list"></div>
+      <div class="more"><button class="btn quiet hidden" id="moreBtn">Ver más noticias</button></div>
+    </section>
+  </main>
+
+  <aside>
+    <div class="rail">
+      <section id="mkSec">
+        <h2>Mercados</h2>
+        <p id="mkNote">Precios con algunos minutos de retraso.</p>
+        <table class="mk"><tbody id="mk"></tbody></table>
+        <p class="mood hidden" id="mood"></p>
+      </section>
+      <section class="trends" id="trSec">
+        <h2>En tendencia</h2>
+        <ol id="trends"></ol>
+      </section>
+      <p class="foot">Las noticias se actualizan cada hora desde sus medios originales. Toca cualquier titular para leer el resumen y abrir la nota completa.</p>
+    </div>
+  </aside>
 </div>
 
-<!-- ---------- Asistente de consulta ---------- -->
-<button class="fab" id="fab">💬 Consultar</button>
-<button class="sel-pill" id="selPill" hidden></button>
-
-<section class="panel" id="panel" hidden aria-label="Asistente de consulta">
-  <div class="p-head">
-    <strong>💬 Consultar</strong>
-    <button class="icon" id="newChat" title="Nueva conversación">↺</button>
-    <button class="icon" id="gear" title="Configuración">⚙️</button>
-    <button class="icon" id="closeP" title="Cerrar">✕</button>
+<!-- Lector -->
+<div class="scrim hidden" id="scrim"></div>
+<article class="sheet hidden" id="reader" role="dialog" aria-modal="true" aria-labelledby="rTitle">
+  <div class="sheet-h">
+    <button class="ib" id="rPrev" aria-label="Noticia anterior"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></button>
+    <button class="ib" id="rNext" aria-label="Noticia siguiente"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>
+    <div class="grow" id="rPos"></div>
+    <button class="ib" id="rClose" aria-label="Cerrar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
+  <div class="sheet-b" id="rBody"></div>
+</article>
 
-  <div id="chatView" style="display:flex;flex-direction:column;flex:1;min-height:0">
-    <div class="ctx" id="ctx" hidden><span id="ctxText"></span><button class="icon" id="ctxX" title="Quitar contexto">✕</button></div>
-    <div class="msgs" id="msgs"></div>
-    <div class="quick" id="quick">
-      <button data-q="Explícame los términos técnicos de esta noticia en palabras simples.">Explícame los términos</button>
-      <button data-q="¿Cómo impacta esto a las empresas y a los negocios? Dame ejemplos concretos.">¿Impacto en empresas?</button>
-      <button data-q="Explícamelo como si fuera mi primer día en el tema, con una analogía.">Explícalo simple</button>
-      <button data-q="¿Qué debería vigilar a partir de ahora sobre este tema?">¿Qué vigilar?</button>
+<!-- Asistente -->
+<aside class="sheet hidden" id="asst" role="dialog" aria-modal="true" aria-label="Preguntar">
+  <div class="sheet-h">
+    <div class="grow" style="font:600 15px var(--sans);color:var(--ink)">Preguntar</div>
+    <button class="ib" id="aNew" aria-label="Nueva conversación" title="Nueva conversación"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="ib" id="aGear" aria-label="Configuración" title="Configuración"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    <button class="ib" id="aClose" aria-label="Cerrar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div id="aChat" style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <div class="ctx hidden" id="ctx"><span id="ctxText"></span><button class="ib" id="ctxX" aria-label="Quitar noticia" style="width:24px;height:24px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="chat" id="msgs"></div>
+    <div class="sugs" id="sugs">
+      <button data-q="Explícame los términos técnicos de esta noticia en palabras simples.">Explicar los términos</button>
+      <button data-q="¿Cómo afecta esto a las empresas? Dame ejemplos concretos.">Impacto en empresas</button>
+      <button data-q="Explícamelo como si fuera mi primer día en el tema, con una analogía.">Explicarlo simple</button>
+      <button data-q="¿Qué debería vigilar a partir de ahora sobre este tema?">Qué vigilar</button>
     </div>
-    <form class="p-form" id="form">
-      <textarea id="input" placeholder="Pregunta un término o concepto…" rows="1"></textarea>
+    <form class="compose" id="form">
+      <textarea id="input" rows="1" placeholder="Pregunta un término o concepto"></textarea>
       <button class="btn" type="submit">Enviar</button>
     </form>
-    <div class="p-foot">
-      <button class="btn ghost" id="openClaude" type="button">Abrir en Claude ↗</button>
-    </div>
+    <div style="padding:0 16px 14px"><button class="btn quiet" id="openClaude" type="button" style="width:100%;justify-content:center">Abrir en Claude</button></div>
   </div>
-
-  <div class="settings" id="settingsView" hidden>
-    <p>Elige quién responde <b>dentro</b> de la página. Tu clave se guarda solo en este dispositivo (nunca en GitHub).</p>
-    <label for="prov">Motor</label>
+  <div class="settings hidden" id="aSet">
+    <p>Elige quién responde. Las claves se guardan solo en este dispositivo, nunca en GitHub.</p>
+    <label for="prov">Responder con</label>
     <select id="prov">
-      <option value="claude-link">Claude (abre la app o web de Claude, $0 con tu cuenta)</option>
-      <option value="gemini">Gemini, respuestas aquí mismo (clave gratis)</option>
-      <option value="claude-api">Claude API, respuestas aquí mismo (de pago)</option>
+      <option value="claude-link">Claude: abre la app o la web con tu pregunta (gratis con tu cuenta)</option>
+      <option value="gemini">Gemini: responde aquí mismo (clave gratis)</option>
+      <option value="claude-api">Claude API: responde aquí mismo (de pago)</option>
     </select>
-    <div id="gemBox">
-      <label for="gemKey">Clave de Gemini (aistudio.google.com → Get API key)</label>
-      <input id="gemKey" type="password" placeholder="AIza…" autocomplete="off">
-    </div>
-    <div id="claBox">
-      <label for="claKey">Clave de la API de Claude (console.anthropic.com)</label>
-      <input id="claKey" type="password" placeholder="sk-ant-…" autocomplete="off">
-      <label for="claModel">Modelo</label>
-      <input id="claModel" placeholder="claude-haiku-5-5">
-    </div>
-    <p style="margin-top:14px"><button class="btn" id="saveSet" type="button" style="padding:9px 16px">Guardar</button></p>
+    <div id="gemBox"><label for="gemKey">Clave de Gemini</label><input id="gemKey" type="password" placeholder="La obtienes en aistudio.google.com" autocomplete="off"></div>
+    <div id="claBox"><label for="claKey">Clave de la API de Claude</label><input id="claKey" type="password" placeholder="La obtienes en console.anthropic.com" autocomplete="off">
+      <label for="claModel">Modelo</label><input id="claModel" placeholder="claude-haiku-5-5"></div>
+    <p style="margin-top:20px"><button class="btn" id="saveSet" type="button">Guardar</button></p>
   </div>
-</section>
+</aside>
+<button class="pill hidden" id="pill"></button>
 
 <script>
 const $ = id => document.getElementById(id);
-let DATA = {items: []}, CFG = {temas: {}}, topic = "top", query = "";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store = {
+  get(k, d = "") { try { return localStorage.getItem("radar_" + k) ?? d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("radar_" + k, v); } catch (e) {} }
+};
+let DATA = {items: [], stories: [], trends: [], markets: []}, CFG = {temas: {}};
+let topic = "all", query = "", shown = 25, visible = [], byId = {};
+const lastVisit = Number(store.get("lastVisit", "0"));
 
-const fmtUsd = n => "$" + Math.round(n).toLocaleString("es");
+/* ---------- formato ---------- */
 const ago = iso => {
   if (!iso) return "";
   const m = Math.max(1, Math.round((Date.now() - new Date(iso)) / 60000));
   if (m < 60) return `hace ${m} min`;
   const h = Math.round(m / 60);
-  return h < 24 ? `hace ${h} h` : `hace ${Math.round(h / 24)} d`;
+  return h < 24 ? `hace ${h} h` : (h < 48 ? "ayer" : `hace ${Math.round(h / 24)} días`);
 };
-const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-
-function ticker(symbols) {
-  const box = document.createElement("div");
-  box.className = "tradingview-widget-container";
-  box.innerHTML = '<div class="tradingview-widget-container__widget"></div>';
-  const s = document.createElement("script");
-  s.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-  s.async = true;
-  s.innerHTML = JSON.stringify({symbols, showSymbolLogo: true, colorTheme: "dark", isTransparent: true, displayMode: "adaptive", locale: "es"});
-  box.appendChild(s);
-  $("ticker").appendChild(box);
+const fmtNum = (n, sym) => {
+  const d = Math.abs(n) >= 1000 ? 0 : Math.abs(n) >= 10 ? 2 : 4;
+  const s = n.toLocaleString("es", {minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: "always"});
+  return /USD$|^[A-Z]{1,5}$/.test(sym) ? "$" + s : s;
+};
+const fmtChg = c => c == null ? "" : `<span class="${c >= 0 ? "up" : "down"}">${c >= 0 ? "+" : "−"}${Math.abs(c).toFixed(2)}%</span>`;
+const topicName = k => CFG.temas[k]?.nombre || k;
+const sources = list => {
+  const n = list.length;
+  if (n <= 1) return list[0] || "";
+  if (n <= 3) return list.slice(0, -1).join(", ") + " y " + list[n - 1];
+  return `${list.slice(0, 2).join(", ")} y ${n - 2} medios más`;
+};
+function para(text) { return String(text || "").split(/\n+/).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join(""); }
+function spark(vals) {
+  if (!vals || vals.length < 3) return "";
+  const w = 56, h = 18, mn = Math.min(...vals), mx = Math.max(...vals), r = mx - mn || 1;
+  const pts = vals.map((v, i) => `${(i / (vals.length - 1) * w).toFixed(1)},${(h - 2 - (v - mn) / r * (h - 4)).toFixed(1)}`).join(" ");
+  const up = vals[vals.length - 1] >= vals[0];
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="var(${up ? "--up" : "--down"})" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
 }
 
-async function markets() {
-  try {
-    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true");
-    const d = await r.json();
-    for (const [id, el] of [["bitcoin", "btc"], ["ethereum", "eth"]]) {
-      const ch = d[id].usd_24h_change;
-      $(el).textContent = fmtUsd(d[id].usd);
-      $(el + "d").innerHTML = `<span class="${ch >= 0 ? "up" : "down"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}% 24 h</span>`;
-    }
-  } catch (e) { $("btcd").textContent = "sin datos"; }
-  try {
-    const r = await fetch("https://api.alternative.me/fng/?limit=1");
-    const d = (await r.json()).data[0];
-    const tr = {"Extreme Fear":"Miedo extremo","Fear":"Miedo","Neutral":"Neutral","Greed":"Codicia","Extreme Greed":"Codicia extrema"};
-    $("fng").textContent = d.value + " / 100";
-    $("fngd").textContent = tr[d.value_classification] || d.value_classification;
-  } catch (e) { $("fngd").textContent = "sin datos"; }
+/* ---------- render ---------- */
+function renderMast() {
+  const d = new Date();
+  const s = d.toLocaleDateString("es", {weekday: "long", day: "numeric", month: "long"});
+  $("date").textContent = s.charAt(0).toUpperCase() + s.slice(1);
+  const nSrc = new Set(DATA.items.flatMap(i => [i.source, ...(i.also || []).map(a => a.source)])).size;
+  const fresh = DATA.items.filter(i => lastVisit && new Date(i.published) > lastVisit).length;
+  $("status").textContent = `Actualizado ${ago(DATA.generated_at)}. ${DATA.items.length} noticias de ${nSrc} medios` +
+    (fresh ? `, ${fresh} nuevas desde tu última visita.` : ".");
+  if (DATA.brief?.length) {
+    $("brief").innerHTML = DATA.brief.map(b => `<li>${esc(b)}</li>`).join("");
+    $("brief").classList.remove("hidden");
+  } else $("setup").classList.remove("hidden");
 }
 
-function chips() {
-  const opts = [["top", "🔥 Lo más importante"], ["all", "Todo"], ...Object.entries(CFG.temas).map(([k, v]) => [k, v.nombre])];
-  $("chips").innerHTML = opts.map(([k, n]) => `<button class="chip${k === topic ? " on" : ""}" data-k="${k}">${esc(n)}</button>`).join("");
-  $("chips").querySelectorAll(".chip").forEach(b => b.onclick = () => { topic = b.dataset.k; chips(); render(); });
+function renderTabs() {
+  const count = k => DATA.items.filter(i => i.topics.includes(k)).length;
+  const opts = [["all", "Todo", DATA.items.length], ...Object.keys(CFG.temas).map(k => [k, topicName(k), count(k)])].filter(o => o[2] > 0);
+  $("tabs").innerHTML = opts.map(([k, n, c]) =>
+    `<button class="tab" role="tab" data-k="${k}" aria-selected="${k === topic}">${esc(n)}<small>${c}</small></button>`).join("");
 }
 
-function render() {
-  let items = DATA.items;
-  if (topic === "top") items = items.slice(0, 25);
-  else if (topic !== "all") items = items.filter(i => i.topics.includes(topic));
+function filtered() {
   if (query) {
     const q = query.toLowerCase();
-    items = DATA.items.filter(i => (i.title + " " + (i.ai_summary || "") + " " + i.summary + " " + i.source).toLowerCase().includes(q));
+    return DATA.items.filter(i => [i.title, i.ai_summary, i.summary, i.source, ...(i.also || []).map(a => a.title + " " + a.source)].join(" ").toLowerCase().includes(q));
   }
-  if (!items.length) { $("list").innerHTML = '<div class="empty">No hay noticias para este filtro.</div>'; return; }
-  $("list").innerHTML = items.map((i, idx) => {
-    const tags = i.topics.map(t => `<span class="badge">${esc(CFG.temas[t]?.nombre || t)}</span>`).join("");
-    const hot = i.n_sources >= 3 ? `<span class="badge hot">en ${i.n_sources} medios</span>` : "";
-    const also = i.also?.length ? `<div class="also">También en: ${i.also.map(a => `<a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.source)}</a>`).join(", ")}</div>` : "";
-    const sum = i.ai_summary || i.summary;
-    return `<article class="item${(topic === "top" && idx < 5) || i.n_sources >= 4 ? " top" : ""}" data-id="${esc(i.id)}">
-      <div class="meta"><strong>${esc(i.source)}</strong><span>${ago(i.published)}</span>${hot}${tags}</div>
-      <a class="title" href="${esc(i.link)}" target="_blank" rel="noopener">${esc(i.title)}</a>
-      ${sum ? `<div class="sum">${esc(sum)}</div>` : ""}
-      ${also}
-      <button class="ask-item" data-id="${esc(i.id)}">💬 Preguntar sobre esto</button>
-    </article>`;
-  }).join("");
+  return topic === "all" ? DATA.items : DATA.items.filter(i => i.topics.includes(topic));
 }
 
-async function init() {
-  try { CFG = await (await fetch("config.json", {cache: "no-store"})).json(); } catch (e) {}
-  document.title = CFG.titulo || "Radar 360";
-  ticker(CFG.tickers || []);
-  markets();
-  chips();
-  try {
-    DATA = await (await fetch("news.json", {cache: "no-store"})).json();
-    $("updated").textContent = "Actualizado " + ago(DATA.generated_at);
-    $("count").textContent = DATA.items.length;
-    $("countd").textContent = DATA.items.filter(i => i.n_sources >= 3).length + " con cobertura amplia";
-    if (DATA.brief?.length) {
-      $("brief").hidden = false;
-      $("briefList").innerHTML = DATA.brief.map(b => `<li>${esc(b)}</li>`).join("");
-    }
-  } catch (e) {
-    $("updated").textContent = "Aún no hay noticias";
-    $("list").innerHTML = '<div class="empty">Todavía no se generó news.json. Ve a la pestaña Actions de GitHub y ejecuta “Actualizar Radar”.</div>';
+function renderStories() {
+  const st = query ? [] : DATA.stories.filter(s => topic === "all" || s.tema === topic || s.ids.some(id => byId[id]?.topics[0] === topic));
+  $("storiesSec").classList.toggle("hidden", !st.length);
+  $("stories").innerHTML = st.map((s, idx) => {
+    const its = s.ids.map(id => byId[id]).filter(Boolean);
+    const srcs = [...new Set(its.flatMap(i => [i.source, ...(i.also || []).map(a => a.source)]))];
+    const kicker = [topicName(s.tema), s.foco && !s.ai ? `${its.length} titulares sobre ${s.foco}` : "", ago(its[0]?.published)].filter(Boolean).join(", ");
+    return `<div class="story" tabindex="0" role="button" data-story="${DATA.stories.indexOf(s)}">
+      <p class="kicker">${esc(kicker)}</p>
+      <h3>${esc(s.titulo)}</h3>
+      ${s.resumen ? `<p class="dek">${esc(s.resumen)}</p>` : ""}
+      ${s.por_que_importa ? `<p class="why"><mark>${esc(s.por_que_importa)}</mark></p>` : ""}
+      <p class="srcs">${esc(sources(srcs))}</p>
+    </div>`;
+  }).join("");
+  return new Set(st.flatMap(s => s.ids));
+}
+
+function renderList() {
+  const inStories = renderStories();
+  const all = filtered().filter(i => query || !inStories.has(i.id));
+  visible = all;
+  $("listTitle").innerHTML = query ? `Resultados para “${esc(query)}”<span>${all.length}</span>` : "Últimas noticias";
+  if (!all.length) {
+    $("list").innerHTML = `<p class="empty">${query ? "No hay noticias con esa búsqueda. Prueba con otra palabra o revisa la ortografía." : "No hay más noticias en este tema por ahora."}</p>`;
+    $("moreBtn").classList.add("hidden");
     return;
   }
-  render();
+  $("list").innerHTML = all.slice(0, shown).map(i => {
+    const isNew = lastVisit && new Date(i.published) > lastVisit;
+    const meta = [i.source, i.n_sources > 1 ? `y ${i.n_sources - 1} más` : "", topicName(i.topics[0])];
+    return `<button class="item${isNew ? " new" : ""}" data-id="${i.id}">
+      <span class="when">${esc(ago(i.published).replace("hace ", ""))}</span>
+      <p class="t">${esc(i.title)}</p>
+      ${(i.ai_summary || i.summary) ? `<p class="s">${esc(i.ai_summary || i.summary)}</p>` : ""}
+      <p class="m">${esc(meta[0] + (meta[1] ? " " + meta[1] : ""))}, ${esc(meta[2])}<span class="mt">, ${esc(ago(i.published))}</span></p>
+    </button>`;
+  }).join("");
+  $("moreBtn").classList.toggle("hidden", all.length <= shown);
 }
-$("q").addEventListener("input", e => { query = e.target.value.trim(); render(); });
-init();
-setInterval(markets, 60000);
 
-/* =================== Asistente de consulta =================== */
-const store = {
-  get(k, d = "") { try { return localStorage.getItem("radar_" + k) ?? d; } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem("radar_" + k, v); } catch (e) {} }
-};
-const SYSTEM = `Eres el asistente de "Radar 360", la página de noticias personal de un emprendedor en América Latina interesado en IA, startups, economía, bolsa, bitcoin y marketing. Responde siempre en español, claro y breve (máximo unas 180 palabras salvo que te pidan más). Cuando expliques un término o concepto: 1) definición simple, 2) un ejemplo o analogía cotidiana, 3) por qué importa para las empresas o las inversiones. Si te falta información sobre la noticia, dilo; no inventes datos.`;
+function renderMarkets() {
+  const mk = DATA.markets || [];
+  $("mkSec").classList.toggle("hidden", !mk.length);
+  $("mk").innerHTML = mk.map(m => `<tr data-sym="${esc(m.symbol)}">
+      <td><a href="https://finance.yahoo.com/quote/${encodeURIComponent(m.symbol)}" target="_blank" rel="noopener">${esc(m.name)}</a></td>
+      <td class="p">${fmtNum(m.price, m.symbol)}</td>
+      <td class="c">${fmtChg(m.change)}</td>
+      <td class="sp">${spark(m.spark)}</td></tr>`).join("");
+  $("strip").innerHTML = mk.map(m => `<a href="https://finance.yahoo.com/quote/${encodeURIComponent(m.symbol)}" target="_blank" rel="noopener" data-sym="${esc(m.symbol)}"><b>${esc(m.name)}</b>${fmtChg(m.change)}</a>`).join("");
+}
+
+function renderTrends() {
+  const tr = DATA.trends || [];
+  $("trSec").classList.toggle("hidden", !tr.length);
+  $("trends").innerHTML = tr.slice(0, 10).map(t => `<li><button data-term="${esc(t.term)}"><span>${esc(t.term)}</span><span>${t.count}</span></button></li>`).join("");
+}
+
+function render() { renderTabs(); renderList(); }
+
+/* ---------- datos en vivo (cripto) ---------- */
+async function liveCrypto() {
+  try {
+    const d = await (await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true")).json();
+    for (const [id, sym] of [["bitcoin", "BTC-USD"], ["ethereum", "ETH-USD"]]) {
+      const m = (DATA.markets || []).find(x => x.symbol === sym);
+      if (m && d[id]) { m.price = d[id].usd; m.change = +d[id].usd_24h_change.toFixed(2); }
+    }
+    renderMarkets();
+    $("mkNote").textContent = "Cripto en vivo. Acciones con algunos minutos de retraso.";
+  } catch (e) {}
+  try {
+    const f = (await (await fetch("https://api.alternative.me/fng/?limit=1")).json()).data[0];
+    const tr = {"Extreme Fear": "miedo extremo", "Fear": "miedo", "Neutral": "neutral", "Greed": "codicia", "Extreme Greed": "codicia extrema"};
+    $("mood").textContent = `Ánimo del mercado cripto: ${tr[f.value_classification] || f.value_classification} (${f.value} de 100).`;
+    $("mood").classList.remove("hidden");
+  } catch (e) {}
+}
+
+/* ---------- lector ---------- */
+let rList = [], rIdx = -1, lastFocus = null;
+function showSheet(el, on) {
+  const scrim = $("scrim");
+  if (on) {
+    lastFocus = document.activeElement;
+    el.classList.remove("hidden"); scrim.classList.remove("hidden");
+    requestAnimationFrame(() => { el.classList.add("on"); scrim.classList.add("on"); });
+    document.body.style.overflow = "hidden";
+  } else {
+    el.classList.remove("on"); scrim.classList.remove("on");
+    setTimeout(() => { el.classList.add("hidden"); if (!$("reader").classList.contains("on") && !$("asst").classList.contains("on")) scrim.classList.add("hidden"); }, 260);
+    if (!$("reader").classList.contains("on") && !$("asst").classList.contains("on")) document.body.style.overflow = "";
+    lastFocus?.focus?.();
+  }
+}
+function openReader(list, idx) {
+  rList = list; rIdx = idx;
+  drawReader();
+  if (!$("reader").classList.contains("on")) { showSheet($("reader"), true); history.pushState({r: 1}, ""); }
+  setTimeout(() => $("rClose").focus(), 50);
+}
+function drawReader() {
+  const entry = rList[rIdx];
+  $("rPrev").disabled = rIdx <= 0; $("rNext").disabled = rIdx >= rList.length - 1;
+  $("rPos").textContent = rList.length > 1 ? `${rIdx + 1} de ${rList.length}` : "";
+  let html;
+  if (entry.story) {
+    const s = entry.story, its = s.ids.map(id => byId[id]).filter(Boolean);
+    html = `<p class="r-meta">${esc(topicName(s.tema))}, ${esc(ago(its[0]?.published))}</p>
+      <h2 class="r-title" id="rTitle">${esc(s.titulo)}</h2>
+      <div class="r-body">${para(s.resumen)}${s.por_que_importa ? `<p class="why" style="margin:0"><mark>${esc(s.por_que_importa)}</mark></p>` : ""}</div>
+      <div class="r-actions"><button class="btn" data-ask="story">Preguntar sobre esta historia</button></div>
+      <div class="r-also"><h4>Cómo lo cuentan los medios</h4>${its.map(i => `<a href="${esc(i.link)}" target="_blank" rel="noopener"><span class="at">${esc(i.title)}</span><span class="as">${esc(i.source)}, ${esc(ago(i.published))}</span></a>`).join("")}</div>`;
+  } else {
+    const i = entry.item;
+    const sum = i.ai_summary || i.summary;
+    html = `<p class="r-meta">${esc(i.source)}, ${esc(ago(i.published))}, ${esc(topicName(i.topics[0]))}</p>
+      <h2 class="r-title" id="rTitle">${esc(i.title)}</h2>
+      <div class="r-body">${sum ? para(sum) : ""}${i.ai_summary && i.summary ? `<p style="color:var(--ink2);font-size:16.5px">${esc(i.summary)}</p>` : ""}</div>
+      ${sum ? "" : `<p class="r-note">${esc(i.source)} no publica un extracto. Abre la nota para leerla completa.</p>`}
+      <div class="r-actions">
+        <a class="btn" href="${esc(i.link)}" target="_blank" rel="noopener">Leer en ${esc(i.source)}</a>
+        <button class="btn quiet" data-ask="item">Preguntar sobre esta noticia</button>
+      </div>
+      ${i.also?.length ? `<div class="r-also"><h4>También lo cubren</h4>${i.also.map(a => `<a href="${esc(a.link)}" target="_blank" rel="noopener"><span class="at">${esc(a.title || i.title)}</span><span class="as">${esc(a.source)}</span></a>`).join("")}</div>` : ""}`;
+  }
+  $("rBody").innerHTML = html;
+  $("rBody").scrollTop = 0;
+}
+function closeReader(fromPop) {
+  if (!$("reader").classList.contains("on")) return;
+  showSheet($("reader"), false);
+  if (!fromPop && history.state?.r) history.back();
+}
+$("rPrev").onclick = () => { if (rIdx > 0) { rIdx--; drawReader(); } };
+$("rNext").onclick = () => { if (rIdx < rList.length - 1) { rIdx++; drawReader(); } };
+$("rClose").onclick = () => closeReader();
+$("scrim").onclick = () => { closeReader(); closeAsst(); };
+window.addEventListener("popstate", () => { if ($("asst").classList.contains("on")) closeAsst(true); else closeReader(true); });
+$("rBody").addEventListener("click", e => {
+  const b = e.target.closest("[data-ask]");
+  if (!b) return;
+  const entry = rList[rIdx];
+  const ctx = entry.story
+    ? {title: entry.story.titulo, source: "varios medios", summary: entry.story.resumen + " " + (entry.story.por_que_importa || ""), link: byId[entry.story.ids[0]]?.link || ""}
+    : {title: entry.item.title, source: entry.item.source, summary: entry.item.ai_summary || entry.item.summary, link: entry.item.link};
+  askAbout(ctx);
+});
+
+/* ---------- eventos de la página ---------- */
+$("tabs").addEventListener("click", e => {
+  const b = e.target.closest(".tab"); if (!b) return;
+  topic = b.dataset.k; shown = 25; query = ""; $("q").value = "";
+  render();
+});
+$("q").addEventListener("input", e => { query = e.target.value.trim(); shown = 25; renderList(); });
+$("moreBtn").onclick = () => { shown += 25; renderList(); };
+$("list").addEventListener("click", e => {
+  const b = e.target.closest(".item"); if (!b) return;
+  openReader(visible.map(i => ({item: i})), visible.findIndex(i => i.id === b.dataset.id));
+});
+function openStory(el) {
+  const sts = [...document.querySelectorAll("#stories .story")].map(s => ({story: DATA.stories[+s.dataset.story]}));
+  openReader(sts, [...document.querySelectorAll("#stories .story")].indexOf(el));
+}
+$("stories").addEventListener("click", e => { const s = e.target.closest(".story"); if (s) openStory(s); });
+$("stories").addEventListener("keydown", e => { const s = e.target.closest(".story"); if (s && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openStory(s); } });
+$("trends").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  query = b.dataset.term; $("q").value = query; shown = 50; renderList();
+  document.querySelector(".nav").scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { if ($("asst").classList.contains("on")) closeAsst(); else closeReader(); }
+  if ($("reader").classList.contains("on") && !$("asst").classList.contains("on")) {
+    if (e.key === "ArrowRight" || e.key === "j") $("rNext").click();
+    if (e.key === "ArrowLeft" || e.key === "k") $("rPrev").click();
+  }
+  if (e.key === "/" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") { e.preventDefault(); $("q").focus(); }
+});
+
+/* =================== Asistente =================== */
+const SYSTEM = `Eres el asistente de "Radar", la página de noticias personal de un emprendedor en América Latina interesado en IA, startups, economía, bolsa, cripto y marketing. Responde en español, con tono claro y sobrio, en máximo unas 180 palabras salvo que te pidan más. Para explicar un término o concepto: 1) definición simple, 2) un ejemplo o analogía, 3) por qué importa para las empresas o las inversiones. Si te falta información sobre la noticia, dilo; no inventes datos.`;
 let chat = [], ctxItem = null, selTimer = null;
-
-const ctxText = () => ctxItem ? `Noticia que estoy viendo:\nTítulo: ${ctxItem.title}\nMedio: ${ctxItem.source}\nResumen: ${ctxItem.ai_summary || ctxItem.summary || "(sin resumen)"}\nEnlace: ${ctxItem.link}` : "";
+const ctxText = () => ctxItem ? `Noticia que estoy viendo:\nTítulo: ${ctxItem.title}\nMedio: ${ctxItem.source}\nResumen: ${ctxItem.summary || "(sin resumen)"}\nEnlace: ${ctxItem.link}` : "";
 
 function md(text) {
   const lines = esc(text).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").split("\n");
@@ -280,68 +573,65 @@ function md(text) {
   for (const l of lines) {
     const m = l.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)/);
     if (m) { if (!list) { out += "<ul>"; list = true; } out += `<li>${m[1]}</li>`; }
-    else { if (list) { out += "</ul>"; list = false; } if (l.trim()) out += `<div>${l}</div>`; }
+    else { if (list) { out += "</ul>"; list = false; } if (l.trim()) out += `<p>${l}</p>`; }
   }
   return out + (list ? "</ul>" : "");
 }
 function addMsg(role, text) {
   const d = document.createElement("div");
-  d.className = "msg " + role;
+  d.className = "m-" + role;
   if (role === "bot") d.innerHTML = md(text); else d.textContent = text;
   $("msgs").appendChild(d);
   $("msgs").scrollTop = $("msgs").scrollHeight;
   return d;
 }
 function intro() {
-  const inPage = store.get("prov", "claude-link") !== "claude-link";
-  addMsg("note", inPage
-    ? "Pregúntame cualquier término o concepto. También puedes seleccionar texto en la página para preguntar por él."
-    : "Escribe tu pregunta y se abrirá Claude con el contexto de la noticia. Para respuestas aquí mismo, configura ⚙️.");
+  addMsg("note", store.get("prov", "claude-link") === "claude-link"
+    ? "Escribe tu pregunta y se abrirá Claude con el contexto de la noticia. Si prefieres respuestas aquí mismo, configúralo con el ícono de engranaje."
+    : "Pregunta por cualquier término o concepto. También puedes seleccionar texto en la página y preguntar por él.");
 }
 function setCtx(item) {
   ctxItem = item;
-  $("ctx").hidden = !item;
-  $("ctxText").textContent = item ? "Sobre: " + item.title : "";
-  $("quick").style.display = item ? "flex" : "none";
+  $("ctx").classList.toggle("hidden", !item);
+  $("ctxText").innerHTML = item ? `Sobre <b>${esc(item.title)}</b>` : "";
+  $("sugs").classList.toggle("hidden", !item);
 }
 function resetChat() { chat = []; $("msgs").innerHTML = ""; }
-function showView(settings) {
-  $("chatView").style.display = settings ? "none" : "flex";
-  $("settingsView").hidden = !settings;
-}
-function openPanel() {
-  $("panel").hidden = false; $("fab").hidden = true; showView(false);
+function asstView(settings) { $("aChat").style.display = settings ? "none" : "flex"; $("aSet").classList.toggle("hidden", !settings); }
+function openAsst() {
+  asstView(false);
   if (!$("msgs").children.length) intro();
-  setTimeout(() => $("input").focus(), 60);
+  if (!$("asst").classList.contains("on")) { showSheet($("asst"), true); history.pushState({a: 1}, ""); }
+  setTimeout(() => $("input").focus(), 80);
 }
-function closePanel() { $("panel").hidden = true; $("fab").hidden = false; }
+function closeAsst(fromPop) {
+  if (!$("asst").classList.contains("on")) return;
+  showSheet($("asst"), false);
+  if (!fromPop && history.state?.a) history.back();
+}
 function askAbout(item, q) {
-  if (item !== ctxItem) resetChat();
+  if (!item || !ctxItem || item.title !== ctxItem.title) resetChat();
   setCtx(item);
-  openPanel();
+  openAsst();
   if (q) send(q);
 }
-
 function claudeUrl(q) {
-  let prompt = (ctxItem ? ctxText() + "\n\n" : "") + q +
-    "\n\n(Responde en español, en palabras simples, con un ejemplo, y dime por qué importa para las empresas.)";
+  const prompt = (ctxItem ? ctxText() + "\n\n" : "") + q + "\n\n(Responde en español, en palabras simples, con un ejemplo, y dime por qué importa para las empresas.)";
   return "https://claude.ai/new?q=" + encodeURIComponent(prompt.slice(0, 3500));
 }
-function openClaude(q) { window.open(claudeUrl(q || "Explícame esta noticia y sus términos clave."), "_blank", "noopener"); }
+const openClaude = q => window.open(claudeUrl(q || "Explícame esta noticia y sus términos clave."), "_blank", "noopener");
 
 async function askGemini() {
   const key = store.get("gemKey");
-  if (!key) throw new Error("falta la clave de Gemini en ⚙️");
-  const body = {
-    systemInstruction: {parts: [{text: SYSTEM}]},
+  if (!key) throw new Error("falta la clave de Gemini en la configuración");
+  const body = {systemInstruction: {parts: [{text: SYSTEM}]},
     contents: chat.map(m => ({role: m.role === "user" ? "user" : "model", parts: [{text: m.text}]})),
-    generationConfig: {temperature: 0.4}
-  };
+    generationConfig: {temperature: 0.4}};
   let last;
-  for (const model of ["gemini-flash-latest", "gemini-2.5-flash"]) {
+  for (const model of ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"]) {
     try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": key}, body: JSON.stringify(body)});
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": key}, body: JSON.stringify(body)});
       const d = await r.json();
       if (!r.ok) throw new Error(d.error?.message || "error " + r.status);
       return d.candidates[0].content.parts.map(p => p.text || "").join("");
@@ -351,107 +641,102 @@ async function askGemini() {
 }
 async function askClaudeApi() {
   const key = store.get("claKey");
-  if (!key) throw new Error("falta la clave de la API de Claude en ⚙️");
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
+  if (!key) throw new Error("falta la clave de la API de Claude en la configuración");
+  const r = await fetch("https://api.anthropic.com/v1/messages", {method: "POST",
     headers: {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"},
     body: JSON.stringify({model: store.get("claModel") || "claude-haiku-5-5", max_tokens: 900, system: SYSTEM,
-      messages: chat.map(m => ({role: m.role === "user" ? "user" : "assistant", content: m.text}))})
-  });
+      messages: chat.map(m => ({role: m.role === "user" ? "user" : "assistant", content: m.text}))})});
   const d = await r.json();
   if (!r.ok) throw new Error(d.error?.message || "error " + r.status);
   return d.content.map(c => c.text || "").join("");
 }
-
 async function send(q) {
-  q = (q || "").trim();
-  if (!q) return;
+  q = (q || "").trim(); if (!q) return;
   const prov = store.get("prov", "claude-link");
-  addMsg("user", q);
-  $("input").value = "";
-  if (prov === "claude-link") { addMsg("note", "Abriendo Claude con tu pregunta…"); openClaude(q); return; }
+  addMsg("user", q); $("input").value = "";
+  if (prov === "claude-link") { addMsg("note", "Abriendo Claude con tu pregunta."); openClaude(q); return; }
   chat.push({role: "user", text: (!chat.length && ctxItem ? ctxText() + "\n\nPregunta: " : "") + q});
-  const wait = addMsg("note", "Pensando…");
+  const wait = addMsg("note", "Escribiendo respuesta…");
   try {
     const a = prov === "gemini" ? await askGemini() : await askClaudeApi();
-    wait.remove();
-    chat.push({role: "bot", text: a});
-    addMsg("bot", a);
+    wait.remove(); chat.push({role: "bot", text: a}); addMsg("bot", a);
   } catch (e) {
     wait.remove(); chat.pop();
-    addMsg("note", "No se pudo responder (" + e.message + "). Puedes tocar «Abrir en Claude».");
+    addMsg("note", `No se pudo responder: ${e.message}. Puedes usar Abrir en Claude.`);
   }
 }
-
-/* --- eventos --- */
-$("fab").onclick = openPanel;
-$("closeP").onclick = closePanel;
-$("newChat").onclick = () => { resetChat(); setCtx(null); showView(false); intro(); };
+$("askBtn").onclick = () => { resetChat(); setCtx(null); openAsst(); };
+$("aClose").onclick = () => closeAsst();
+$("aNew").onclick = () => { resetChat(); setCtx(null); asstView(false); intro(); };
 $("ctxX").onclick = () => { resetChat(); setCtx(null); intro(); };
 $("form").onsubmit = e => { e.preventDefault(); send($("input").value); };
 $("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("input").value); } });
-$("quick").querySelectorAll("button").forEach(b => b.onclick = () => send(b.dataset.q));
+$("sugs").querySelectorAll("button").forEach(b => b.onclick = () => send(b.dataset.q));
 $("openClaude").onclick = () => {
   const lastQ = [...chat].reverse().find(m => m.role === "user");
   openClaude($("input").value.trim() || (lastQ && lastQ.text.split("Pregunta: ").pop()));
 };
-$("list").addEventListener("click", e => {
-  const b = e.target.closest(".ask-item");
-  if (b) askAbout(DATA.items.find(i => i.id === b.dataset.id) || null, null);
-});
-document.addEventListener("keydown", e => { if (e.key === "Escape") closePanel(); });
-
-/* --- configuración --- */
-function syncBoxes() {
-  const p = $("prov").value;
-  $("gemBox").style.display = p === "gemini" ? "block" : "none";
-  $("claBox").style.display = p === "claude-api" ? "block" : "none";
-}
-$("gear").onclick = () => {
-  const open = $("settingsView").hidden;
-  if (open) {
-    $("prov").value = store.get("prov", "claude-link");
-    $("gemKey").value = store.get("gemKey");
-    $("claKey").value = store.get("claKey");
-    $("claModel").value = store.get("claModel");
-    syncBoxes();
-  }
-  showView(open);
+function syncBoxes() { const p = $("prov").value; $("gemBox").classList.toggle("hidden", p !== "gemini"); $("claBox").classList.toggle("hidden", p !== "claude-api"); }
+$("aGear").onclick = () => {
+  const open = $("aSet").classList.contains("hidden");
+  if (open) { $("prov").value = store.get("prov", "claude-link"); $("gemKey").value = store.get("gemKey"); $("claKey").value = store.get("claKey"); $("claModel").value = store.get("claModel"); syncBoxes(); }
+  asstView(open);
 };
 $("prov").onchange = syncBoxes;
 $("saveSet").onclick = () => {
-  store.set("prov", $("prov").value);
-  store.set("gemKey", $("gemKey").value.trim());
-  store.set("claKey", $("claKey").value.trim());
-  store.set("claModel", $("claModel").value.trim());
-  showView(false);
-  addMsg("note", "Configuración guardada en este dispositivo.");
+  ["prov", "gemKey", "claKey", "claModel"].forEach(k => store.set(k, $(k).value.trim()));
+  asstView(false); addMsg("note", "Configuración guardada en este dispositivo.");
 };
 
-/* --- seleccionar texto → preguntar --- */
-const pill = $("selPill");
+/* --- seleccionar texto para preguntar --- */
+const pill = $("pill");
 function selCheck() {
   const s = window.getSelection();
   const t = s && s.rangeCount ? s.toString().trim().replace(/\s+/g, " ") : "";
-  if (!t || t.length < 2 || t.length > 200 || $("panel").contains(s.anchorNode)) { pill.hidden = true; return; }
+  if (!t || t.length < 2 || t.length > 200 || $("asst").contains(s.anchorNode)) { pill.classList.add("hidden"); return; }
   const r = s.getRangeAt(0).getBoundingClientRect();
-  const node = s.anchorNode.nodeType === 1 ? s.anchorNode : s.anchorNode.parentElement;
-  const art = node && node.closest(".item");
   pill.dataset.t = t;
-  pill.dataset.id = art ? art.dataset.id : "";
-  pill.textContent = `💬 ¿Qué es «${t.length > 26 ? t.slice(0, 26) + "…" : t}»?`;
+  pill.textContent = `Preguntar qué es “${t.length > 28 ? t.slice(0, 28) + "…" : t}”`;
   pill.style.top = (window.scrollY + r.bottom + 10) + "px";
-  pill.style.left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - 270)) + "px";
-  pill.hidden = false;
+  pill.style.left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - 290)) + "px";
+  pill.classList.remove("hidden");
 }
 document.addEventListener("selectionchange", () => { clearTimeout(selTimer); selTimer = setTimeout(selCheck, 350); });
 pill.addEventListener("mousedown", e => e.preventDefault());
 pill.onclick = () => {
-  const item = DATA.items.find(i => i.id === pill.dataset.id) || null;
-  pill.hidden = true;
+  const t = pill.dataset.t;
+  pill.classList.add("hidden");
+  let ctx = null;
+  if ($("reader").classList.contains("on")) {
+    const e = rList[rIdx];
+    ctx = e.story ? {title: e.story.titulo, source: "varios medios", summary: e.story.resumen, link: ""} : {title: e.item.title, source: e.item.source, summary: e.item.ai_summary || e.item.summary, link: e.item.link};
+  }
   try { window.getSelection().removeAllRanges(); } catch (e) {}
-  askAbout(item, `¿Qué significa «${pill.dataset.t}» en este contexto?`);
+  askAbout(ctx, `¿Qué significa “${t}” en este contexto?`);
 };
+
+/* ---------- inicio ---------- */
+async function init() {
+  const [cfg, data] = await Promise.all([
+    fetch("config.json").then(r => r.json()).catch(() => ({temas: {}})),
+    fetch("news.json").then(r => r.json()).catch(() => null)
+  ]);
+  CFG = cfg;
+  if (!data) {
+    $("status").textContent = "Todavía no hay noticias. En GitHub, abre la pestaña Actions y ejecuta Actualizar Radar.";
+    return;
+  }
+  DATA = data;
+  DATA.stories ||= []; DATA.markets ||= [];
+  byId = Object.fromEntries(DATA.items.map(i => [i.id, i]));
+  renderMast(); render(); renderMarkets(); renderTrends();
+  store.set("lastVisit", String(Date.now()));
+  liveCrypto(); setInterval(liveCrypto, 60000);
+}
+const setHH = () => document.documentElement.style.setProperty("--hh", document.querySelector(".top").offsetHeight + "px");
+setHH(); addEventListener("resize", setHH);
+init().then(setHH);
+if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 </script>
 </body>
 </html>
