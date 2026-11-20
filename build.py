@@ -158,8 +158,24 @@ def collect(cfg: dict) -> list:
         sources.append({"nombre": f"Google News: {b['q']}", "url": gnews_url(b["q"], b.get("idioma", "es")),
                         "tema": b.get("tema"), "google": True})
     print(f"Leyendo {len(sources)} fuentes…")
-    with ThreadPoolExecutor(max_workers=12) as pool:
-        results = list(pool.map(read_source, sources))
+    direct = [s for s in sources if not s.get("google")]
+    google = [s for s in sources if s.get("google")]
+
+    def read_google():
+        # Google News bloquea las ráfagas: de a una, con pausa y un reintento
+        out = []
+        for src in google:
+            got = read_source(src)
+            if not got:
+                time.sleep(4)
+                got = read_source(src)
+            out.append(got)
+            time.sleep(1.2)
+        return out
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        g = pool.submit(read_google)
+        results = list(pool.map(read_source, direct)) + g.result()
     return [it for batch in results for it in batch]
 
 
@@ -428,7 +444,8 @@ def translate_items(items: list, prev: dict):
         size += len(entry[2]) + 1
     flush(batch)
     print(f"Traducción: {done} textos nuevos, {len(fields) and sum(1 for o, f in fields if o.get(f + '_orig'))} en total, {fail} fallaron.")
-    used = {o[f + "_orig"]: o[f] for o, f in fields if o.get(f + "_orig")}
+    # se guardan aparte solo los extractos: los títulos ya quedan en cada noticia (title_orig)
+    used = {o["summary_orig"]: o["summary"] for o, f in fields if f == "summary" and o.get("summary_orig")}
     for it in items:  # del extracto basta con la versión traducida
         it.pop("summary_orig", None)
     return used
