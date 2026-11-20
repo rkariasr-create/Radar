@@ -347,6 +347,93 @@ def merge_markets(cfg, fresh, old):
             if got.get(t["symbol"]) or prev.get(t["symbol"])]
 
 
+# ---------------------------------------------------------------- traducción al español
+ES_HINT = set("el la los las de del que y en un una por para con se su sus es al lo como mas pero tras sobre ante hoy".split())
+EN_HINT = set("the of and to in for on with is are as at by from its after over says will that this".split())
+
+
+def is_spanish(text: str) -> bool:
+    words = re.findall(r"[a-záéíóúñ]+", (text or "").lower())
+    es = sum(w in ES_HINT for w in words) + 2 * len(re.findall(r"[áéíóúñ¿¡]", (text or "").lower()))
+    en = sum(w in EN_HINT for w in words)
+    return es > en
+
+
+def _gtx(texts: list) -> list:
+    """Traducción gratuita (Google Translate público). Una línea por texto."""
+    q = "\n".join(t.replace("\n", " ") for t in texts)
+    url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q=" + urllib.parse.quote(q)
+    data = json.loads(fetch(url, timeout=20))
+    out = "".join(seg[0] for seg in data[0] if seg and seg[0])
+    lines = [l.strip() for l in out.split("\n")]
+    if len(lines) != len(texts):
+        raise ValueError(f"se esperaban {len(texts)} líneas y llegaron {len(lines)}")
+    return lines
+
+
+def translate_items(items: list, prev: dict):
+    """Traduce títulos y extractos que no estén en español. Reutiliza traducciones anteriores."""
+    cache = {}
+    for it in prev.get("items", []):
+        if it.get("title_orig"):
+            cache[it["title_orig"]] = it["title"]
+        for a in it.get("also", []):
+            if a.get("title_orig"):
+                cache[a["title_orig"]] = a["title"]
+    cache.update(prev.get("tr_cache") or {})
+
+    fields = []  # (objeto, campo)
+    for it in items:
+        fields += [(it, "title"), (it, "summary")]
+        fields += [(a, "title") for a in it.get("also", [])]
+    pending = []
+    for obj, f in fields:
+        text = obj.get(f) or ""
+        if not text or is_spanish(text):
+            continue
+        if text in cache:
+            obj[f + "_orig"], obj[f] = text, cache[text]
+        else:
+            pending.append((obj, f, text))
+
+    done = fail = 0
+    batch, size = [], 0
+    def flush(b):
+        nonlocal done, fail
+        if not b:
+            return
+        try:
+            res = _gtx([t for _, _, t in b])
+        except Exception:
+            res = []
+            for _, _, t in b:  # si el lote falla, se intenta de a uno
+                try:
+                    res.append(_gtx([t])[0])
+                except Exception:
+                    res.append(None)
+                time.sleep(0.2)
+        for (obj, f, t), r in zip(b, res):
+            if r:
+                obj[f + "_orig"], obj[f] = t, r
+                cache[t] = r
+                done += 1
+            else:
+                fail += 1
+        time.sleep(0.3)
+    for entry in pending:
+        if size + len(entry[2]) > 1800 or len(batch) >= 25:
+            flush(batch)
+            batch, size = [], 0
+        batch.append(entry)
+        size += len(entry[2]) + 1
+    flush(batch)
+    print(f"Traducción: {done} textos nuevos, {len(fields) and sum(1 for o, f in fields if o.get(f + '_orig'))} en total, {fail} fallaron.")
+    used = {o[f + "_orig"]: o[f] for o, f in fields if o.get(f + "_orig")}
+    for it in items:  # del extracto basta con la versión traducida
+        it.pop("summary_orig", None)
+    return used
+
+
 # ---------------------------------------------------------------- IA (opcional)
 def previous_output():
     try:
@@ -447,10 +534,10 @@ def auto_stories(items: list, trend_list: list, k: int = 5) -> list:
     stories, used = [], set()
     for t in trend_list:
         rx = re.compile(r"(?<![a-z0-9])" + re.escape(norm(t["term"])) + r"(?![a-z0-9])")
-        group = [it for it in items[:80] if it["id"] not in used and rx.search(norm(it["title"]))]
+        group = [it for it in items[:80] if it["id"] not in used and rx.search(norm(it.get("title_orig") or it["title"]))]
         if len(group) < 3:
             continue
-        lead = max(group[:8], key=lambda it: (bool(rx.search(norm(it["title"])[:len(it["title"]) // 2])), bool(it.get("ai_summary") or it["summary"]), it["n_sources"]))
+        lead = max(group[:8], key=lambda it: (bool(rx.search(norm(it.get("title_orig") or it["title"])[:len(it.get("title_orig") or it["title"]) // 2])), bool(it.get("ai_summary") or it["summary"]), it["n_sources"]))
         group.remove(lead)
         group.insert(0, lead)
         used.update(it["id"] for it in group)
@@ -477,6 +564,7 @@ def main():
         sys.exit("No se obtuvo ninguna noticia; se conserva el news.json anterior.")
     tr = trends(items)
     ai = ai_enrich(items, cfg, prev)
+    tr_cache = translate_items(items, prev) if os.environ.get("TRADUCIR", "1") != "0" else {}
     stories = attach_ai(items, ai) or auto_stories(items, tr)
     out = {
         "generated_at": NOW.isoformat(timespec="seconds"),
@@ -486,6 +574,7 @@ def main():
         "markets": merge_markets(cfg, mk, prev.get("markets") or []),
         "ai": ai or None,
         "items": items,
+        "tr_cache": tr_cache,
     }
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))

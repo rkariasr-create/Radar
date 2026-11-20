@@ -121,6 +121,38 @@ h2.sec span{color:var(--ink3);font-weight:400;margin-left:6px}
 .trends button span:last-child{color:var(--ink3);font-size:12.5px;font-variant-numeric:tabular-nums}
 .foot{margin-top:36px;font-size:12px;color:var(--ink3);line-height:1.6}
 
+/* ---------- pantallas anchas: tres columnas ---------- */
+.side{display:none}
+@media (min-width:1280px){
+  .page,.top-in{max-width:1520px}
+  .page{grid-template-columns:200px minmax(0,1fr) 300px;gap:56px}
+  #list .item{align-content:start}
+  .side{display:block;padding-top:44px}
+  .side-in{position:sticky;top:calc(var(--hh,57px) + 20px)}
+  .side h2{font:600 14px/1 var(--sans);margin:0 0 10px}
+  .vtabs{display:flex;flex-direction:column}
+  .vtabs .tab{text-align:left;padding:7px 0 7px 12px;border-bottom:0;border-left:2px solid transparent;margin:0;display:flex;justify-content:space-between}
+  .vtabs .tab[aria-selected=true]{border-left-color:var(--ink)}
+  .side .trends{margin-top:36px}
+  .nav{display:none}
+  #trSec{display:none}
+  .mast h1{font-size:54px}
+  .brief{display:grid;grid-template-columns:1fr 1fr;column-gap:40px;font-size:18px}
+  .brief li,.brief li:first-child{padding:14px 0;border-top:1px solid var(--rule)}
+  .brief li:nth-child(-n+2){border-top:0;padding-top:0}
+  #stories{display:grid;grid-template-columns:1fr 1fr;column-gap:40px}
+  #stories .story{border-bottom:0;border-top:1px solid var(--rule)}
+  #stories .story:nth-child(-n+3){border-top:0}
+  #stories .story:first-child{grid-column:1/-1;border-bottom:1px solid var(--rule);padding-bottom:28px}
+  #stories .story:first-child h3{font-size:34px;line-height:1.12}
+  #stories .story:first-child .dek,#stories .story:first-child .why{font-size:19px}
+  #stories .story:not(:first-child) h3{font-size:23px}
+  #list{display:grid;grid-template-columns:1fr 1fr;column-gap:40px}
+  #list .item{grid-template-columns:52px 1fr}
+  h2.sec{margin-top:44px}
+}
+@media (min-width:1280px) and (max-width:1439px){ .page{gap:40px;grid-template-columns:180px minmax(0,1fr) 280px} }
+
 /* ---------- móvil ---------- */
 .strip{display:none}
 @media (max-width:980px){
@@ -167,6 +199,7 @@ h2.sec span{color:var(--ink3);font-weight:400;margin-left:6px}
 .r-body{font:400 19px/1.65 var(--serif);margin:18px 0 0}
 .r-body p{margin:0 0 14px}
 .r-note{font-size:14px;color:var(--ink2);margin:16px 0 0}
+.r-orig{font-size:13.5px;color:var(--ink3);margin:10px 0 0}
 .r-actions{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0 0}
 .r-also{margin:36px 0 0}
 .r-also h4{font:600 14px var(--sans);margin:0 0 4px}
@@ -218,6 +251,16 @@ h2.sec span{color:var(--ink3);font-weight:400;margin-left:6px}
 </header>
 
 <div class="page">
+  <nav class="side" aria-label="Secciones">
+    <div class="side-in">
+      <h2>Temas</h2>
+      <div class="vtabs" id="vtabs" role="tablist" aria-label="Temas"></div>
+      <section class="trends" id="trSecL">
+        <h2>En tendencia</h2>
+        <ol id="trendsL"></ol>
+      </section>
+    </div>
+  </nav>
   <main>
     <section class="mast">
       <h1 id="date">Radar</h1>
@@ -254,7 +297,7 @@ h2.sec span{color:var(--ink3);font-weight:400;margin-left:6px}
         <h2>En tendencia</h2>
         <ol id="trends"></ol>
       </section>
-      <p class="foot">Las noticias se actualizan cada hora desde sus medios originales. Toca cualquier titular para leer el resumen y abrir la nota completa.</p>
+      <p class="foot">Las noticias se actualizan cada hora desde sus medios originales. Los titulares en otros idiomas se traducen automáticamente al español. Toca cualquiera para leer el resumen y abrir la nota completa.</p>
     </div>
   </aside>
 </div>
@@ -318,7 +361,7 @@ const store = {
   set(k, v) { try { localStorage.setItem("radar_" + k, v); } catch (e) {} }
 };
 let DATA = {items: [], stories: [], trends: [], markets: []}, CFG = {temas: {}};
-let topic = "all", query = "", shown = 25, visible = [], byId = {};
+let topic = "all", query = "", shown = 30, visible = [], byId = {};
 const lastVisit = Number(store.get("lastVisit", "0"));
 
 /* ---------- formato ---------- */
@@ -369,14 +412,16 @@ function renderMast() {
 function renderTabs() {
   const count = k => DATA.items.filter(i => i.topics.includes(k)).length;
   const opts = [["all", "Todo", DATA.items.length], ...Object.keys(CFG.temas).map(k => [k, topicName(k), count(k)])].filter(o => o[2] > 0);
-  $("tabs").innerHTML = opts.map(([k, n, c]) =>
+  const html = opts.map(([k, n, c]) =>
     `<button class="tab" role="tab" data-k="${k}" aria-selected="${k === topic}">${esc(n)}<small>${c}</small></button>`).join("");
+  $("tabs").innerHTML = html;
+  $("vtabs").innerHTML = html;
 }
 
 function filtered() {
   if (query) {
     const q = query.toLowerCase();
-    return DATA.items.filter(i => [i.title, i.ai_summary, i.summary, i.source, ...(i.also || []).map(a => a.title + " " + a.source)].join(" ").toLowerCase().includes(q));
+    return DATA.items.filter(i => [i.title, i.title_orig, i.ai_summary, i.summary, i.source, ...(i.also || []).map(a => a.title + " " + (a.title_orig || "") + " " + a.source)].join(" ").toLowerCase().includes(q));
   }
   return topic === "all" ? DATA.items : DATA.items.filter(i => i.topics.includes(topic));
 }
@@ -436,7 +481,10 @@ function renderMarkets() {
 function renderTrends() {
   const tr = DATA.trends || [];
   $("trSec").classList.toggle("hidden", !tr.length);
-  $("trends").innerHTML = tr.slice(0, 10).map(t => `<li><button data-term="${esc(t.term)}"><span>${esc(t.term)}</span><span>${t.count}</span></button></li>`).join("");
+  $("trSecL").classList.toggle("hidden", !tr.length);
+  const html = tr.slice(0, 10).map(t => `<li><button data-term="${esc(t.term)}"><span>${esc(t.term)}</span><span>${t.count}</span></button></li>`).join("");
+  $("trends").innerHTML = html;
+  $("trendsL").innerHTML = html;
 }
 
 function render() { renderTabs(); renderList(); }
@@ -501,6 +549,7 @@ function drawReader() {
     const sum = i.ai_summary || i.summary;
     html = `<p class="r-meta">${esc(i.source)}, ${esc(ago(i.published))}, ${esc(topicName(i.topics[0]))}</p>
       <h2 class="r-title" id="rTitle">${esc(i.title)}</h2>
+      ${i.title_orig ? `<p class="r-orig">Título original: ${esc(i.title_orig)}</p>` : ""}
       <div class="r-body">${sum ? para(sum) : ""}${i.ai_summary && i.summary ? `<p style="color:var(--ink2);font-size:16.5px">${esc(i.summary)}</p>` : ""}</div>
       ${sum ? "" : `<p class="r-note">${esc(i.source)} no publica un extracto. Abre la nota para leerla completa.</p>`}
       <div class="r-actions">
@@ -533,13 +582,15 @@ $("rBody").addEventListener("click", e => {
 });
 
 /* ---------- eventos de la página ---------- */
-$("tabs").addEventListener("click", e => {
+function pickTopic(e) {
   const b = e.target.closest(".tab"); if (!b) return;
-  topic = b.dataset.k; shown = 25; query = ""; $("q").value = "";
+  topic = b.dataset.k; shown = 30; query = ""; $("q").value = "";
   render();
-});
-$("q").addEventListener("input", e => { query = e.target.value.trim(); shown = 25; renderList(); });
-$("moreBtn").onclick = () => { shown += 25; renderList(); };
+}
+$("tabs").addEventListener("click", pickTopic);
+$("vtabs").addEventListener("click", pickTopic);
+$("q").addEventListener("input", e => { query = e.target.value.trim(); shown = 30; renderList(); });
+$("moreBtn").onclick = () => { shown += 30; renderList(); };
 $("list").addEventListener("click", e => {
   const b = e.target.closest(".item"); if (!b) return;
   openReader(visible.map(i => ({item: i})), visible.findIndex(i => i.id === b.dataset.id));
@@ -550,11 +601,15 @@ function openStory(el) {
 }
 $("stories").addEventListener("click", e => { const s = e.target.closest(".story"); if (s) openStory(s); });
 $("stories").addEventListener("keydown", e => { const s = e.target.closest(".story"); if (s && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openStory(s); } });
-$("trends").addEventListener("click", e => {
+function pickTrend(e) {
   const b = e.target.closest("button"); if (!b) return;
   query = b.dataset.term; $("q").value = query; shown = 50; renderList();
-  document.querySelector(".nav").scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
-});
+  const target = getComputedStyle(document.querySelector(".nav")).display === "none" ? $("listTitle") : document.querySelector(".nav");
+  const y = target.getBoundingClientRect().top + scrollY - document.querySelector(".top").offsetHeight - 12;
+  scrollTo({top: y, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+}
+$("trends").addEventListener("click", pickTrend);
+$("trendsL").addEventListener("click", pickTrend);
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") { if ($("asst").classList.contains("on")) closeAsst(); else closeReader(); }
   if ($("reader").classList.contains("on") && !$("asst").classList.contains("on")) {
