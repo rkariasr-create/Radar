@@ -471,21 +471,25 @@ def previous_output():
 
 
 def gemini(prompt: str, key: str):
-    models = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"] if m]
+    """Pide JSON a Gemini. Si el modelo está saturado (503) o tarda, prueba otro y reintenta una vez."""
+    models = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-flash-latest", "gemini-flash-lite-latest"] if m]
     body = json.dumps({"contents": [{"parts": [{"text": prompt}]}],
                        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.3}}).encode()
-    for model in models:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", "x-goog-api-key": key})
-        try:
-            with urllib.request.urlopen(req, timeout=120) as r:
-                data = json.loads(r.read())
-            text = data["candidates"][0]["content"]["parts"][0]["text"]
-            text = re.sub(r"^```(json)?|```$", "", text.strip()).strip()
-            print(f"IA: respuesta de {model}.")
-            return json.loads(text)
-        except Exception as ex:
-            print(f"IA: falló {model}: {ex}")
+    for ronda in (1, 2):
+        for model in models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", "x-goog-api-key": key})
+            try:
+                with urllib.request.urlopen(req, timeout=150) as r:
+                    data = json.loads(r.read())
+                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                text = re.sub(r"^```(json)?|```$", "", text.strip()).strip()
+                print(f"IA: respuesta de {model} (intento {ronda}).")
+                return json.loads(text)
+            except Exception as ex:
+                print(f"IA: falló {model} (intento {ronda}): {ex}")
+        if ronda == 1:
+            time.sleep(20)
     return None
 
 
@@ -503,7 +507,7 @@ def ai_enrich(items: list, cfg: dict, prev: dict) -> dict:
     except Exception:
         pass
 
-    top = items[:60]
+    top = items[:40]
     listado = "\n".join(f'{it["id"]} | {it["source"]} | {it["title"]} | {it["summary"][:160]}' for it in top)
     temas = ", ".join(cfg.get("temas", {}).keys())
     prompt = f"""Eres el analista personal de esta persona. Perfil: {cfg.get('perfil', '')}
