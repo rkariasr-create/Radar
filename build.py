@@ -413,22 +413,32 @@ def translate_items(items: list, prev: dict):
             pending.append((obj, f, text))
 
     done = fail = 0
+    streak = 0  # lotes fallidos seguidos: si el traductor nos bloquea, no se insiste
     batch, size = [], 0
     def flush(b):
-        nonlocal done, fail
+        nonlocal done, fail, streak
         if not b:
             return
-        try:
-            res = _gtx([t for _, _, t in b])
-        except Exception:
-            res = []
-            for _, _, t in b:  # si el lote falla, se intenta de a uno
+        res = None
+        if streak < 3:
+            for wait in (0, 3):
+                time.sleep(wait)
                 try:
-                    res.append(_gtx([t])[0])
+                    res = _gtx([t for _, _, t in b])
+                    break
+                except ValueError:  # el lote volvió desordenado: se traduce de a uno
+                    res = []
+                    for _, _, t in b:
+                        try:
+                            res.append(_gtx([t])[0])
+                        except Exception:
+                            res.append(None)
+                        time.sleep(0.2)
+                    break
                 except Exception:
-                    res.append(None)
-                time.sleep(0.2)
-        for (obj, f, t), r in zip(b, res):
+                    continue
+        streak = 0 if res else streak + 1
+        for (obj, f, t), r in zip(b, res or [None] * len(b)):
             if r:
                 obj[f + "_orig"], obj[f] = t, r
                 cache[t] = r
@@ -511,7 +521,8 @@ Responde SOLO con JSON válido, todo en español neutro, tono sobrio de periódi
      "tema": "uno de: {temas}",
      "ids": ["ids de TODAS las noticias de la lista que tratan este mismo hecho"]}}
  ],
- "resumenes": {{"<id>": "1 frase en español: qué pasó"}}
+ "resumenes": {{"<id>": "1 frase en español: qué pasó"}},
+ "titulos": {{"<id>": "el título traducido a un español natural, solo para los títulos que no estén en español"}}
 }}
 Reglas: 5 a 8 historias ordenadas por importancia; agrupa en una misma historia los titulares del mismo hecho aunque estén redactados distinto o en otro idioma. Incluye en "resumenes" todos los id. No inventes datos que no estén en la lista."""
     result = gemini(prompt, key)
@@ -524,8 +535,9 @@ Reglas: 5 a 8 historias ordenadas por importancia; agrupa en una misma historia 
         if links:
             stories.append({k: str(s.get(k, "")) for k in ("titulo", "resumen", "por_que_importa", "tema")} | {"links": links})
     summaries = {by_id[i]["link"]: str(t) for i, t in result.get("resumenes", {}).items() if i in by_id}
+    titles = {by_id[i]["link"]: str(t) for i, t in (result.get("titulos") or {}).items() if i in by_id and t}
     return {"at": NOW.isoformat(timespec="seconds"), "brief": [str(p) for p in result.get("brief", [])][:6],
-            "stories": stories, "summaries": summaries}
+            "stories": stories, "summaries": summaries, "titles": titles}
 
 
 def attach_ai(items: list, ai: dict) -> list:
@@ -581,6 +593,10 @@ def main():
         sys.exit("No se obtuvo ninguna noticia; se conserva el news.json anterior.")
     tr = trends(items)
     ai = ai_enrich(items, cfg, prev)
+    for it in items:  # títulos traducidos por la IA (más naturales que la traducción automática)
+        t = (ai.get("titles") or {}).get(it["link"])
+        if t and not is_spanish(it["title"]):
+            it["title_orig"], it["title"] = it["title"], t
     tr_cache = translate_items(items, prev) if os.environ.get("TRADUCIR", "1") != "0" else {}
     stories = attach_ai(items, ai) or auto_stories(items, tr)
     out = {

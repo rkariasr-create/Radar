@@ -21,9 +21,15 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment2.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
+      # Siempre se trabaja sobre la última versión (también al usar "Re-run jobs")
+      - name: Usar la última versión del repositorio
+        run: |
+          git fetch --depth=1 origin main
+          git checkout -B main origin/main
 
       - uses: actions/setup-python@v5
         with:
@@ -43,13 +49,31 @@ jobs:
           git config user.email "radar-bot@users.noreply.github.com"
           git add news.json
           git commit -m "Noticias actualizadas" || echo "Sin cambios"
-          git push || echo "No se pudo guardar (no es grave)"
+          for i in 1 2 3; do
+            git push origin main && break
+            git fetch --depth=1 origin main && git rebase -X theirs origin/main || git rebase --abort
+          done
 
       - uses: actions/configure-pages@v5
 
+      # Nombre único por intento: así "Re-run jobs" no choca con el archivo del intento anterior
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
+          name: github-pages-${{ github.run_attempt }}
 
       - id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
+
+      - name: Esperar antes de reintentar la publicación
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 45
+
+      - id: deployment2
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
