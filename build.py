@@ -54,6 +54,8 @@ the a an and or of to in on for with at by from is are was why how what who this
 el la los las un una de del en y por para con que como su sus al se lo es tras segun hoy
 ai ia ceo ipo us eu uk news stock stocks market markets update weekly review exclusive report live breaking analysis opinion video podcast
 wall street inc corp co ltd group tech big top best here these those first
+times financial journal post reuters bloomberg cnbc wsj nyt axios business insider fortune forbes barron techcrunch verge
+inteligencia artificial intelligence artificial u.s u.s. eeuu ee.uu estados unidos united states america news
 lunes martes miercoles jueves viernes sabado domingo monday tuesday wednesday thursday friday saturday sunday
 enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre january february march april may june july august september october november december
 """.split())
@@ -264,7 +266,8 @@ def trends(items: list, n: int = 12) -> list:
     """Nombres propios que más se repiten en los titulares (Anthropic, Nvidia, Fed…)."""
     counts, display = Counter(), {}
     for it in items:
-        words = re.findall(r"[A-Za-zÀ-ÿ][\w&\.'’-]*", it["title"])
+        title = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]\s*$", "", it.get("title_orig") or it["title"])  # quita "(Autor/Medio)"
+        words = re.findall(r"[A-Za-zÀ-ÿ][\w&\.'’-]*", title)
         if len(words) < 3:
             continue
         caps = sum(1 for w in words if w[0].isupper())
@@ -272,6 +275,7 @@ def trends(items: list, n: int = 12) -> list:
         seen = set()
         for i, w in enumerate(words):
             w = re.sub(r"(['’]s|['’])$", "", w.strip(".-"))
+            w = w.rstrip(".")
             key = norm(w)
             acronym = w.isupper() and 2 < len(w) <= 5
             proper = w[:1].isupper() and i > 0 and not title_case
@@ -279,8 +283,8 @@ def trends(items: list, n: int = 12) -> list:
                 continue
             seen.add(key)
             counts[key] += 1 + min(it["n_sources"] - 1, 3) * 0.5
-            display.setdefault(key, w)
-    return [{"term": display[k], "count": round(v)} for k, v in counts.most_common(n) if v >= 2.5]
+            display.setdefault(key, Counter())[w] += 1
+    return [{"term": display[k].most_common(1)[0][0], "count": round(v)} for k, v in counts.most_common(n) if v >= 2.5]
 
 
 # ---------------------------------------------------------------- mercados

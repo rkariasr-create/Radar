@@ -223,6 +223,7 @@ h2.sec span{color:var(--ink3);font-weight:400;margin-left:6px}
 .compose{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--rule)}
 .compose textarea{flex:1;resize:none;border:1px solid var(--rule);background:var(--paper);color:var(--ink);border-radius:8px;padding:10px 12px;font:15px/1.4 var(--sans);height:44px;outline:none}
 .compose textarea:focus{border-color:var(--ink3)}
+.compose .btn:disabled{opacity:.5;cursor:default}
 .settings{padding:20px;font-size:14px}
 .settings p{color:var(--ink2);margin:0 0 14px}
 .settings label{display:block;font-weight:500;margin:14px 0 6px}
@@ -645,7 +646,7 @@ function addMsg(role, text) {
 function intro() {
   addMsg("note", store.get("prov", "claude-link") === "claude-link"
     ? "Escribe tu pregunta y se abrirá Claude con el contexto de la noticia. Si prefieres respuestas aquí mismo, configúralo con el ícono de engranaje."
-    : "Pregunta por cualquier término o concepto. También puedes seleccionar texto en la página y preguntar por él.");
+    : "Pregunta por cualquier término o concepto, o pide un resumen de las noticias de hoy. También puedes seleccionar texto en la página y preguntar por él.");
 }
 function setCtx(item) {
   ctxItem = item;
@@ -673,53 +674,123 @@ function askAbout(item, q) {
   if (q) send(q);
 }
 function claudeUrl(q) {
-  const prompt = (ctxItem ? ctxText() + "\n\n" : "") + q + "\n\n(Responde en español, en palabras simples, con un ejemplo, y dime por qué importa para las empresas.)";
+  const day = !ctxItem && DATA.brief?.length ? "Contexto, resumen de noticias de hoy:\n" + DATA.brief.map(b => "- " + b).join("\n") + "\n\n" : "";
+  const prompt = (ctxItem ? ctxText() + "\n\n" : day) + q + "\n\n(Responde en español, en palabras simples, con un ejemplo, y dime por qué importa para las empresas.)";
   return "https://claude.ai/new?q=" + encodeURIComponent(prompt.slice(0, 3500));
 }
 const openClaude = q => window.open(claudeUrl(q || "Explícame esta noticia y sus términos clave."), "_blank", "noopener");
 
-async function askGemini() {
+/* Noticias del día que el asistente puede usar para responder */
+function newsDigest() {
+  const lines = [`Fecha: ${$("date").textContent}. Noticias de la página Radar (actualizadas ${ago(DATA.generated_at)}):`];
+  if (DATA.brief?.length) lines.push("Resumen del día:", ...DATA.brief.map(b => "- " + b));
+  if (DATA.stories?.length) lines.push("Historias principales:", ...DATA.stories.map(s => `- ${s.titulo}: ${s.resumen || ""} ${s.por_que_importa ? "Por qué importa: " + s.por_que_importa : ""}`));
+  lines.push("Titulares más relevantes:", ...DATA.items.slice(0, 35).map(i => `- ${i.title} (${i.source}, ${ago(i.published)})${i.ai_summary ? ": " + i.ai_summary : ""}`));
+  if (DATA.markets?.length) lines.push("Mercados: " + DATA.markets.map(m => `${m.name} ${m.change >= 0 ? "+" : ""}${m.change}%`).join(", "));
+  return lines.join("\n");
+}
+const systemText = () => SYSTEM + "\n\nTienes las noticias de hoy de la página. Úsalas para responder sobre lo que está pasando y menciona el medio cuando ayude. Si algo no está en estas noticias, dilo.\n\n" + newsDigest();
+
+/* fetch con tiempo límite: si el servicio no responde, se corta y se avisa */
+function timed(ms) {
+  const ctrl = new AbortController();
+  let t = setTimeout(() => ctrl.abort(), ms);
+  return {signal: ctrl.signal, reset() { clearTimeout(t); t = setTimeout(() => ctrl.abort(), ms); }, done() { clearTimeout(t); }};
+}
+
+async function askGemini(onText) {
   const key = store.get("gemKey");
   if (!key) throw new Error("falta la clave de Gemini en la configuración");
-  const body = {systemInstruction: {parts: [{text: SYSTEM}]},
+  const body = JSON.stringify({systemInstruction: {parts: [{text: systemText()}]},
     contents: chat.map(m => ({role: m.role === "user" ? "user" : "model", parts: [{text: m.text}]})),
-    generationConfig: {temperature: 0.4}};
+    generationConfig: {temperature: 0.4}});
   let last;
-  for (const model of ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"]) {
+  // "lite" responde más rápido; si está saturado se prueba el otro modelo
+  for (const model of ["gemini-flash-lite-latest", "gemini-flash-latest"]) {
+    const tm = timed(25000);
+    let text = "";
     try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": key}, body: JSON.stringify(body)});
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error?.message || "error " + r.status);
-      return d.candidates[0].content.parts.map(p => p.text || "").join("");
-    } catch (e) { last = e; }
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`,
+        {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": key}, body, signal: tm.signal});
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error?.message || "error " + r.status); }
+      const reader = r.body.getReader(), dec = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        tm.reset();
+        buf += dec.decode(value, {stream: true});
+        let i;
+        while ((i = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+          if (!line.startsWith("data:")) continue;
+          try {
+            const j = JSON.parse(line.slice(5));
+            text += (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+            onText(text);
+          } catch (e) {}
+        }
+      }
+      tm.done();
+      if (text) return text;
+      throw new Error("respuesta vacía");
+    } catch (e) {
+      tm.done();
+      if (text) return text;  // si se cortó a mitad, se queda lo que llegó
+      last = e.name === "AbortError" ? new Error("Gemini tardó demasiado en responder") : e;
+    }
   }
   throw last;
 }
-async function askClaudeApi() {
+async function askClaudeApi(onText) {
   const key = store.get("claKey");
   if (!key) throw new Error("falta la clave de la API de Claude en la configuración");
-  const r = await fetch("https://api.anthropic.com/v1/messages", {method: "POST",
-    headers: {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"},
-    body: JSON.stringify({model: store.get("claModel") || "claude-haiku-5-5", max_tokens: 900, system: SYSTEM,
-      messages: chat.map(m => ({role: m.role === "user" ? "user" : "assistant", content: m.text}))})});
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error?.message || "error " + r.status);
-  return d.content.map(c => c.text || "").join("");
+  const tm = timed(60000);
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {method: "POST", signal: tm.signal,
+      headers: {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"},
+      body: JSON.stringify({model: store.get("claModel") || "claude-haiku-5-5", max_tokens: 900, system: systemText(),
+        messages: chat.map(m => ({role: m.role === "user" ? "user" : "assistant", content: m.text}))})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error?.message || "error " + r.status);
+    const text = d.content.map(c => c.text || "").join("");
+    onText(text);
+    return text;
+  } catch (e) {
+    throw e.name === "AbortError" ? new Error("Claude tardó demasiado en responder") : e;
+  } finally { tm.done(); }
 }
+let busy = false;
 async function send(q) {
-  q = (q || "").trim(); if (!q) return;
+  q = (q || "").trim(); if (!q || busy) return;
   const prov = store.get("prov", "claude-link");
   addMsg("user", q); $("input").value = "";
   if (prov === "claude-link") { addMsg("note", "Abriendo Claude con tu pregunta."); openClaude(q); return; }
+  busy = true;
+  document.querySelector("#form .btn").disabled = true;
   chat.push({role: "user", text: (!chat.length && ctxItem ? ctxText() + "\n\nPregunta: " : "") + q});
   const wait = addMsg("note", "Escribiendo respuesta…");
+  let bubble = null;
+  const onText = t => {
+    if (!bubble) { wait.remove(); bubble = addMsg("bot", ""); }
+    bubble.innerHTML = md(t);
+    $("msgs").scrollTop = $("msgs").scrollHeight;
+  };
   try {
-    const a = prov === "gemini" ? await askGemini() : await askClaudeApi();
-    wait.remove(); chat.push({role: "bot", text: a}); addMsg("bot", a);
+    const a = prov === "gemini" ? await askGemini(onText) : await askClaudeApi(onText);
+    onText(a);
+    chat.push({role: "bot", text: a});
   } catch (e) {
-    wait.remove(); chat.pop();
-    addMsg("note", `No se pudo responder: ${e.message}. Puedes usar Abrir en Claude.`);
+    wait.remove(); bubble?.remove(); chat.pop();
+    let msg = String(e.message || "error desconocido").replace(/\.+$/, "");
+    if (/overload|unavailable|503/i.test(msg)) msg = "Gemini está saturado en este momento";
+    else if (/api key not valid|API_KEY_INVALID|permission/i.test(msg)) msg = "la clave no es válida; revísala en la configuración";
+    else if (/quota|429|exhausted/i.test(msg)) msg = "se alcanzó el límite gratis por ahora";
+    addMsg("note", `No se pudo responder: ${msg}. Vuelve a intentarlo en un momento o usa Abrir en Claude.`);
+  } finally {
+    busy = false;
+    document.querySelector("#form .btn").disabled = false;
+    $("input").focus();
   }
 }
 $("askBtn").onclick = () => { resetChat(); setCtx(null); openAsst(); };
